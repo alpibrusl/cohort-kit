@@ -168,6 +168,22 @@ footer {
   font-size: 0.78rem; color: var(--ink-soft);
 }
 .session-checkbox input { width: 1rem; height: 1rem; cursor: pointer; accent-color: var(--accent); }
+.session-note {
+  font-family: "EB Garamond", Georgia, serif; font-size: 0.92rem;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--rule-strong); border-radius: 3px;
+  padding: 0.4rem 0.6rem; resize: vertical; width: 100%;
+}
+.feedback-group { margin-bottom: 1.1rem; }
+.feedback-group h4 {
+  font-size: 0.98rem; margin: 0 0 0.4rem;
+  font-family: "IBM Plex Mono", monospace; font-weight: 600; color: var(--accent-strong);
+}
+.feedback-note {
+  padding: 0.5rem 0.7rem; margin-bottom: 0.4rem;
+  background: var(--paper-raised); border-radius: 3px; font-size: 0.92rem;
+}
+.feedback-note .student { color: var(--ink-faint); font-size: 0.76rem; margin-right: 0.4rem; }
 .stat-row {
   display: flex; align-items: center; gap: 0.8rem;
   padding: 0.5rem 0; border-bottom: 1px solid var(--rule);
@@ -281,6 +297,8 @@ def _session_html(
             '<label class="session-checkbox">'
             f'<input type="checkbox" data-session-checkbox="{s.number}"> Mark complete'
             "</label>"
+            f'<textarea class="session-note" data-session-note="{s.number}" rows="2" '
+            'placeholder="What got in the way? (optional, for the instructor)"></textarea>'
         )
     body += "</div></div>"
     if include_facilitator_notes and s.facilitator_notes:
@@ -345,11 +363,13 @@ def _progress_script(cohort: Cohort) -> str:
       exported_at: new Date().toISOString(),
       sessions: SESSIONS.map(function (s) {{
         const entry = state.sessions[s.number] || {{}};
+        const note = (entry.note || "").trim();
         return {{
           number: s.number,
           title: s.title,
           complete: !!entry.complete,
-          completed_at: entry.complete ? (entry.completed_at || null) : null
+          completed_at: entry.complete ? (entry.completed_at || null) : null,
+          note: note ? note : null
         }};
       }})
     }};
@@ -381,11 +401,27 @@ def _progress_script(cohort: Cohort) -> str:
       const entry = state.sessions[num];
       box.checked = !!(entry && entry.complete);
       box.addEventListener("change", function () {{
+        const existing = state.sessions[num] || {{}};
         state.sessions[num] = box.checked
-          ? {{ complete: true, completed_at: new Date().toISOString() }}
-          : {{ complete: false, completed_at: null }};
+          ? {{ complete: true, completed_at: new Date().toISOString(), note: existing.note || "" }}
+          : {{ complete: false, completed_at: null, note: existing.note || "" }};
         saveState(state);
         updateProgressBar(state);
+      }});
+    }});
+
+    document.querySelectorAll("[data-session-note]").forEach(function (ta) {{
+      const num = ta.getAttribute("data-session-note");
+      const entry = state.sessions[num];
+      ta.value = (entry && entry.note) || "";
+      ta.addEventListener("input", function () {{
+        const existing = state.sessions[num] || {{}};
+        state.sessions[num] = {{
+          complete: !!existing.complete,
+          completed_at: existing.completed_at || null,
+          note: ta.value
+        }};
+        saveState(state);
       }});
     }});
 
@@ -523,6 +559,31 @@ def render_progress_report(report: AggregateReport) -> str:
         for stat in report.session_stats
     )
 
+    feedback_html = ""
+    if report.notes:
+        groups: dict[int, list] = {}
+        titles: dict[int, str] = {}
+        for n in report.notes:
+            groups.setdefault(n.number, []).append(n)
+            titles[n.number] = n.title
+        feedback_html = "\n".join(
+            f"""
+            <div class="feedback-group">
+              <h4>{number:02d}. {_esc(titles[number])}</h4>
+              {
+                "".join(
+                    f'<div class="feedback-note">'
+                    f'<span class="student mono">{_esc(n.student_name)}</span>{_esc(n.note)}'
+                    f"</div>"
+                    for n in notes
+                )
+            }
+            </div>
+            """
+            for number, notes in groups.items()
+        )
+        feedback_html = f'<h2 class="block-title">Feedback</h2>\n{feedback_html}'
+
     return f"""<!doctype html>
 <html>
 <head>
@@ -544,6 +605,8 @@ def render_progress_report(report: AggregateReport) -> str:
 
   <h2 class="block-title">By session</h2>
   {session_rows or "<p>No exports yet.</p>"}
+
+  {feedback_html}
 </section>
 <footer>cohort-kit &middot; generated from exported progress files, not stored anywhere</footer>
 </body>

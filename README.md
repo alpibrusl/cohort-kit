@@ -95,6 +95,13 @@ record — protects against a stale export describing a retitled session. A
 student who exports more than once is only counted once, by their most
 recent submission.
 
+Next to each checkbox is an optional textarea — "what got in the way,"
+not another checkbox. The rubric already rewards an honest "not done" over
+a false "done"; a free-text note is where that honesty goes when a
+checkbox can't carry it. Notes ride in the same export file and show up in
+`cohortkit progress`'s output grouped by session, so an instructor sees
+which session actually confused people, in the students' own words.
+
 ## Why a handout and a guide, not just one page
 
 They come from the exact same source and differ in exactly one way:

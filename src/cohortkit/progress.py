@@ -32,10 +32,21 @@ class StudentSummary(BaseModel):
     exported_at: str
 
 
+class SessionNote(BaseModel):
+    """One student's free-text note on one session — the honest-signal
+    channel a single checkbox can't carry."""
+
+    number: int
+    title: str
+    student_name: str
+    note: str
+
+
 class AggregateReport(BaseModel):
     cohort_title: str
     students: list[StudentSummary]
     session_stats: list[SessionStat]
+    notes: list[SessionNote] = []
 
 
 @dataclass
@@ -112,8 +123,23 @@ def aggregate(exports: list[ProgressExport], cohort: Cohort | None = None) -> Ag
             )
         )
 
+    notes = sorted(
+        (
+            SessionNote(
+                number=s.number,
+                title=s.title,
+                student_name=exp.student_name or "(no name given)",
+                note=s.note.strip(),
+            )
+            for exp in deduped
+            for s in exp.sessions
+            if s.note and s.note.strip()
+        ),
+        key=lambda n: (n.number, n.student_name),
+    )
+
     return AggregateReport(
-        cohort_title=cohort_title, students=students, session_stats=session_stats
+        cohort_title=cohort_title, students=students, session_stats=session_stats, notes=notes
     )
 
 
@@ -134,5 +160,15 @@ def format_table(report: AggregateReport) -> str:
             f"  {stat.number:>2}. {stat.title:<40} "
             f"{stat.students_complete}/{stat.students_total} ({pct}%)"
         )
+
+    if report.notes:
+        lines.append("")
+        lines.append("Feedback:")
+        current_number = None
+        for n in report.notes:
+            if n.number != current_number:
+                lines.append(f"  {n.number:>2}. {n.title}")
+                current_number = n.number
+            lines.append(f"      {n.student_name}: {n.note}")
 
     return "\n".join(lines)

@@ -106,6 +106,12 @@ class SessionProgress(BaseModel):
     completed_at: datetime | None = None
     """None when `complete` is False — a session can't have been completed
     at no particular time."""
+    note: str | None = None
+    """Free-text, optional: what got in the way, or anything else the
+    student wants the instructor to see about this session specifically.
+    Deliberately not another checkbox — the rubric already rewards an
+    honest "not done" over a false "done"; a note is where the honesty
+    goes when a checkbox can't carry it."""
 
 
 class ProgressExport(BaseModel):

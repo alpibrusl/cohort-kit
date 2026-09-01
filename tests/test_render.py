@@ -38,3 +38,10 @@ def test_output_is_well_formed_enough_to_have_matching_tags(tmp_path):
     text = handout_path.read_text(encoding="utf-8")
     assert text.count("<div") == text.count("</div>")
     assert text.startswith("<!doctype html>")
+
+
+def test_feedback_note_textarea_appears_only_in_the_handout(tmp_path):
+    cohort = load(EXAMPLE)
+    handout_path, guide_path = build(cohort, tmp_path)
+    assert 'data-session-note="1"' in handout_path.read_text(encoding="utf-8")
+    assert 'data-session-note="1"' not in guide_path.read_text(encoding="utf-8")
