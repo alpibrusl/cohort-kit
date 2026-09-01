@@ -91,3 +91,62 @@ def test_book_path_warns_about_orphaned_chapters(tmp_path):
     result = check(cohort, EXAMPLE, book_path=book_dir)
     assert result.ok
     assert any("aren't referenced by any session" in w for w in result.warnings)
+
+
+def test_session_count_mismatch_is_an_error():
+    cohort = load(EXAMPLE)
+    cohort.config.session_count = 99
+    result = check(cohort, EXAMPLE)
+    assert not result.ok
+    assert any("session_count: 99" in e for e in result.errors)
+
+
+def test_capstone_with_an_exercise_is_a_warning():
+    cohort = load(EXAMPLE)
+    cohort.sessions[1].exercise = cohort.sessions[0].exercise
+    result = check(cohort, EXAMPLE)
+    assert result.ok
+    assert any("also sets an exercise" in w for w in result.warnings)
+
+
+def test_fixture_outside_the_cohort_is_an_error(tmp_path):
+    outside = tmp_path / "leak.txt"
+    outside.write_text("x")
+    cohort = load(EXAMPLE)
+    cohort.sessions[0].exercise.fixture_ref = str(outside)
+    result = check(cohort, EXAMPLE)
+    assert not result.ok
+    assert any("outside" in e for e in result.errors)
+
+
+def _fake_book(tmp_path, h1: str):
+    book_dir = tmp_path / "fake-book"
+    (book_dir / "chapters").mkdir(parents=True)
+    (book_dir / "book.yaml").write_text(
+        "chapters:\n  - { file: chapters/01-intro.md, title: 'Chapter 1 — Retitled' }\n"
+    )
+    (book_dir / "chapters" / "01-intro.md").write_text(f"# {h1}\n\nBody.\n")
+    return book_dir
+
+
+def test_book_path_catches_a_stale_chapter_title(tmp_path):
+    book_dir = _fake_book(tmp_path, "The Real Title")
+    cohort = load(EXAMPLE)
+    cohort.sessions[0].chapters = [1]
+    cohort.sessions[0].chapter_titles = ["An Old Title"]
+    cohort.sessions[1].chapters = [1]
+    cohort.sessions[1].chapter_titles = []
+    result = check(cohort, EXAMPLE, book_path=book_dir)
+    assert not result.ok
+    assert any("An Old Title" in e and "The Real Title" in e for e in result.errors)
+
+
+def test_book_path_accepts_a_matching_chapter_title(tmp_path):
+    book_dir = _fake_book(tmp_path, "The Real Title")
+    cohort = load(EXAMPLE)
+    cohort.sessions[0].chapters = [1]
+    cohort.sessions[0].chapter_titles = ["the real  title"]
+    cohort.sessions[1].chapters = [1]
+    cohort.sessions[1].chapter_titles = []
+    result = check(cohort, EXAMPLE, book_path=book_dir)
+    assert result.ok
