@@ -45,3 +45,12 @@ def test_feedback_note_textarea_appears_only_in_the_handout(tmp_path):
     handout_path, guide_path = build(cohort, tmp_path)
     assert 'data-session-note="1"' in handout_path.read_text(encoding="utf-8")
     assert 'data-session-note="1"' not in guide_path.read_text(encoding="utf-8")
+
+
+def test_script_block_cannot_be_closed_by_a_title(tmp_path):
+    cohort = load(EXAMPLE)
+    cohort.config.title = "Evil </script><script>alert(1)</script>"
+    handout_path, _ = build(cohort, tmp_path)
+    text = handout_path.read_text(encoding="utf-8")
+    assert "Evil </script>" not in text
+    assert "Evil <\\/script>" in text

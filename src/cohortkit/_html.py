@@ -18,6 +18,14 @@ from .book_content import ChapterContent
 from .progress import AggregateReport
 from .schema import Cohort, Session
 
+
+def _js(value: object) -> str:
+    """JSON for embedding inside a <script> block. json.dumps alone is not
+    enough: a title containing "</script>" would close the block early, so
+    the two sequences that can end a script element are escaped as well."""
+    return json.dumps(value).replace("</", "<\\/").replace("<!--", "<\\!--")
+
+
 _CSS = """
 :root {
   --paper: #f6f1e6; --paper-raised: #efe8d8;
@@ -317,13 +325,13 @@ def _progress_script(cohort: Cohort) -> str:
     only channel this whole feature needs, since there's no server to send
     it to instead."""
     storage_key = f"cohortkit:progress:{_slugify(cohort.config.title)}"
-    sessions_meta = json.dumps([{"number": s.number, "title": s.title} for s in cohort.sessions])
-    cohort_title = json.dumps(cohort.config.title)
+    sessions_meta = _js([{"number": s.number, "title": s.title} for s in cohort.sessions])
+    cohort_title = _js(cohort.config.title)
 
     return f"""
 <script>
 (function () {{
-  const STORAGE_KEY = {json.dumps(storage_key)};
+  const STORAGE_KEY = {_js(storage_key)};
   const COHORT_TITLE = {cohort_title};
   const SESSIONS = {sessions_meta};
 
@@ -379,7 +387,7 @@ def _progress_script(cohort: Cohort) -> str:
     const namePart = (state.studentName || "student")
       .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "student";
     a.href = url;
-    a.download = {json.dumps(_slugify(cohort.config.title))} + "-progress-" + namePart + ".json";
+    a.download = {_js(_slugify(cohort.config.title))} + "-progress-" + namePart + ".json";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

@@ -17,6 +17,8 @@ import yaml
 from .schema import Cohort
 
 _CHAPTER_FILE_RE = re.compile(r"^(\d+)-")
+_H1_RE = re.compile(r"^#\s+(.+?)\s*$")
+_TITLE_OVERRIDE_RE = re.compile(r"^Chapter\s+\d+\s+[—–-]+\s+(.+)$")
 
 
 @dataclass
@@ -47,8 +49,50 @@ def _book_chapter_numbers(book_path: Path) -> set[int]:
     return numbers
 
 
+def _book_chapter_titles(book_path: Path) -> dict[int, str]:
+    """Chapter number -> the title the book itself uses: the chapter file's
+    own H1 when the file exists, else the book.yaml title with any
+    "Chapter N — " prefix stripped. A chapter whose title can't be resolved
+    either way is simply absent, so nothing is compared against a guess."""
+    book_yaml = book_path / "book.yaml"
+    with book_yaml.open(encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    titles: dict[int, str] = {}
+    for entry in data.get("chapters", []):
+        filename = Path(entry["file"]).name
+        m = _CHAPTER_FILE_RE.match(filename)
+        if not m:
+            continue
+        number = int(m.group(1))
+        chapter_path = book_path / entry["file"]
+        if chapter_path.exists():
+            for line in chapter_path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                h1 = _H1_RE.match(line)
+                if h1:
+                    titles[number] = h1.group(1)
+                break
+        if number not in titles:
+            override = _TITLE_OVERRIDE_RE.match(str(entry.get("title") or ""))
+            if override:
+                titles[number] = override.group(1).strip()
+    return titles
+
+
+def _norm(title: str) -> str:
+    return " ".join(title.split()).casefold()
+
+
 def check(cohort: Cohort, cohort_dir: Path, book_path: Path | None = None) -> CheckResult:
     result = CheckResult()
+
+    # --- cohort.yaml's own count agrees with the sequence it describes ---
+    if cohort.config.session_count != len(cohort.sessions):
+        result.errors.append(
+            f"cohort.yaml says session_count: {cohort.config.session_count} but "
+            f"sessions.yaml has {len(cohort.sessions)} session(s) — one of them is stale"
+        )
 
     # --- session numbering: unique, sequential from 1, no gaps ---
     numbers = [s.number for s in cohort.sessions]
@@ -86,11 +130,26 @@ def check(cohort: Cohort, cohort_dir: Path, book_path: Path | None = None) -> Ch
                 f"session {s.number} isn't a capstone and has no exercise — "
                 "a session with nothing hands-on is just the reading, live"
             )
+        if s.capstone and s.exercise:
+            result.warnings.append(
+                f"session {s.number} is a capstone and also sets an exercise — "
+                "the deliverable is what the rubric assesses; is the exercise meant "
+                "to be part of it?"
+            )
 
-    # --- fixture references actually exist ---
+    # --- fixture references stay inside the cohort and actually exist ---
+    cohort_root = cohort_dir.resolve()
     for s in cohort.sessions:
         ref = s.exercise.fixture_ref if s.exercise else None
-        if ref and not (cohort_dir / ref).exists():
+        if not ref:
+            continue
+        target = (cohort_dir / ref).resolve()
+        if not target.is_relative_to(cohort_root):
+            result.errors.append(
+                f"session {s.number}'s exercise references fixture '{ref}', "
+                f"which resolves outside {cohort_dir} — fixtures live under the cohort directory"
+            )
+        elif not target.exists():
             result.errors.append(
                 f"session {s.number}'s exercise references fixture '{ref}', "
                 f"which doesn't exist under {cohort_dir}"
@@ -128,5 +187,24 @@ def check(cohort: Cohort, cohort_dir: Path, book_path: Path | None = None) -> Ch
                     f"chapters {sorted(orphaned)} in {book_path.name} aren't referenced by "
                     "any session — deliberate, or a gap in the curriculum?"
                 )
+
+            # --- chapter_titles, if given, are the titles the book actually uses ---
+            book_titles = _book_chapter_titles(book_path)
+            for s in cohort.sessions:
+                if not s.chapter_titles:
+                    continue
+                if len(s.chapter_titles) != len(s.chapters):
+                    result.errors.append(
+                        f"session {s.number} lists {len(s.chapter_titles)} chapter_titles for "
+                        f"{len(s.chapters)} chapters — they're positional, one per chapter"
+                    )
+                    continue
+                for ch, given in zip(s.chapters, s.chapter_titles, strict=True):
+                    actual = book_titles.get(ch)
+                    if actual is not None and _norm(actual) != _norm(given):
+                        result.errors.append(
+                            f"session {s.number} calls chapter {ch} '{given}' but "
+                            f"{book_path.name} titles it '{actual}' — retitled in the book?"
+                        )
 
     return result
