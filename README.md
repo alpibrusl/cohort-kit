@@ -48,6 +48,7 @@ pip install "cohortkit @ git+https://github.com/alpibrusl/cohort-kit@main"
 cohortkit check path/to/cohort              # validate the source
 cohortkit check path/to/cohort --book-path path/to/the/book  # + cross-check chapter refs
 cohortkit build path/to/cohort --out build  # → build/handout.html, build/facilitator-guide.html
+cohortkit build path/to/cohort --out build --book-path path/to/the/book  # + embed chapter text
 cohortkit progress path/to/exports          # summarize students' exported progress files
 ```
 
@@ -59,6 +60,16 @@ exist, a rubric with nothing in it (or so many dimensions it stops being
 usable live), and — given `--book-path` — a chapter reference that doesn't
 exist in the source book's own `book.yaml`, or a book chapter no session
 ever mentions.
+
+## Reading along, without a separate PDF or EPUB
+
+`--book-path` (on `build`, same flag `check` already uses) embeds each
+session's actual chapter text — read straight from the book's own Markdown
+source — collapsed under that session in both the handout and the guide.
+A student needs nothing but the one HTML file to read along; nothing is
+fetched, and nothing needs the book's PDF or EPUB to exist first. Omit the
+flag and sessions just list their chapter numbers, as before — this is
+additive, not a required step.
 
 ## Tracking progress, without a server
 

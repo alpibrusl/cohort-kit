@@ -66,6 +66,11 @@ def check(
 def build(
     cohort_dir: Path = typer.Argument(Path("."), help="Directory containing cohort.yaml"),
     out: Path = typer.Option(Path("build"), "--out", help="Output directory"),
+    book_path: Path | None = typer.Option(
+        None,
+        "--book-path",
+        help="Embed each session's real chapter text from the book's own repo",
+    ),
 ) -> None:
     """Render the student handout and facilitator guide from a cohort's
     source. Does not check first — run `cohortkit check` in CI, this command
@@ -76,7 +81,11 @@ def build(
         _die(str(e), e.hint, e.code)
         return
 
-    handout_path, guide_path = run_build(cohort, out)
+    try:
+        handout_path, guide_path = run_build(cohort, out, book_path=book_path)
+    except ContentKitError as e:
+        _die(str(e), e.hint, e.code)
+        return
     typer.echo(f"wrote {handout_path}")
     typer.echo(f"wrote {guide_path}")
 

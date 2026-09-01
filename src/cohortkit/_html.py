@@ -14,6 +14,7 @@ import html
 import json
 import re
 
+from .book_content import ChapterContent
 from .progress import AggregateReport
 from .schema import Cohort, Session
 
@@ -177,6 +178,38 @@ footer {
   font-family: "IBM Plex Mono", monospace; font-size: 0.78rem;
   color: var(--ink-soft); white-space: nowrap; width: 5.5rem; text-align: right;
 }
+.chapter-reading { margin-top: 0.9rem; }
+.chapter-embed {
+  margin-bottom: 0.5rem; border: 1px solid var(--rule);
+  border-radius: 3px; background: var(--paper);
+}
+.chapter-embed summary {
+  cursor: pointer; padding: 0.55rem 0.8rem;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.78rem;
+  color: var(--accent-strong);
+}
+.chapter-embed summary:hover { color: var(--accent); }
+.chapter-prose {
+  padding: 0.2rem 1.1rem 1.1rem; border-top: 1px solid var(--rule);
+  font-size: 0.96rem;
+}
+.chapter-prose h2 { font-size: 1.15rem; margin: 1.3rem 0 0.5rem; }
+.chapter-prose h3 { font-size: 1.02rem; margin: 1.1rem 0 0.4rem; }
+.chapter-prose p { margin: 0 0 0.85rem; }
+.chapter-prose blockquote {
+  margin: 0 0 0.85rem; padding-left: 0.9rem;
+  border-left: 2px solid var(--rule-strong); color: var(--ink-soft); font-style: italic;
+}
+.chapter-prose ul, .chapter-prose ol { margin: 0 0 0.85rem; padding-left: 1.4rem; }
+.chapter-prose li { margin-bottom: 0.3rem; }
+.chapter-prose code {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.85em;
+  background: var(--tag-bg); padding: 0.1em 0.3em; border-radius: 2px;
+}
+.chapter-prose pre {
+  overflow-x: auto; padding: 0.7rem 0.9rem; background: var(--tag-bg); border-radius: 3px;
+}
+.chapter-prose pre code { background: none; padding: 0; }
 """
 
 _FONTS = (
@@ -198,7 +231,13 @@ def _slugify(s: str) -> str:
     return slug or "cohort"
 
 
-def _session_html(s: Session, *, include_facilitator_notes: bool, interactive: bool) -> str:
+def _session_html(
+    s: Session,
+    *,
+    include_facilitator_notes: bool,
+    interactive: bool,
+    book_chapters: dict[int, ChapterContent] | None = None,
+) -> str:
     chapters = ", ".join(str(c) for c in s.chapters)
     classes = "session capstone" if s.capstone else "session"
     label = f"{s.number:02d} &middot; CAPSTONE" if s.capstone else f"{s.number:02d}"
@@ -212,6 +251,17 @@ def _session_html(s: Session, *, include_facilitator_notes: bool, interactive: b
       <div class="session-chapters mono">Chapters {chapters}</div>
       <div class="field"><span class="label">In session</span><p>{_esc(s.in_session)}</p></div>
     """
+    if book_chapters:
+        found = [book_chapters[n] for n in s.chapters if n in book_chapters]
+        if found:
+            entries = "".join(
+                f'<details class="chapter-embed">'
+                f"<summary>Chapter {c.number} &middot; {_esc(c.title)}</summary>"
+                f'<div class="chapter-prose">{c.html}</div>'
+                f"</details>"
+                for c in found
+            )
+            body += f'<div class="chapter-reading">{entries}</div>'
     if s.capstone and s.deliverable:
         body += (
             '<div class="field"><span class="label">Deliverable</span>'
@@ -350,19 +400,33 @@ def _progress_script(cohort: Cohort) -> str:
 """
 
 
-def render_page(cohort: Cohort, *, audience: str) -> str:
+def render_page(
+    cohort: Cohort,
+    *,
+    audience: str,
+    book_chapters: dict[int, ChapterContent] | None = None,
+) -> str:
     """`audience` is 'handout' or 'facilitator'. The handout also gets an
     interactive progress checklist (checkboxes, a progress bar, an export
     button) that the facilitator guide doesn't — tracking your own progress
     is a student concept, not a facilitator one. Everything else, including
     the rubric, is shown to both, on purpose: a rubric nobody sees in
-    advance isn't a rubric, it's a surprise."""
+    advance isn't a rubric, it's a surprise.
+
+    `book_chapters`, when given, embeds each session's actual chapter text
+    (collapsed by default) right in that session — reading along needs
+    nothing but this one file, no separate PDF or EPUB."""
     include_notes = audience == "facilitator"
     interactive = audience == "handout"
     label = "Facilitator Guide" if include_notes else "Student Handout"
 
     sessions_html = "\n".join(
-        _session_html(s, include_facilitator_notes=include_notes, interactive=interactive)
+        _session_html(
+            s,
+            include_facilitator_notes=include_notes,
+            interactive=interactive,
+            book_chapters=book_chapters,
+        )
         for s in cohort.sessions
     )
 
