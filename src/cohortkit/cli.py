@@ -6,8 +6,10 @@ import typer
 from content_kit_core._errors import ContentKitError
 from content_kit_core._exit_codes import ExitCode
 
+from ._html import render_progress_report
 from .check import check as run_check
 from .loader import load
+from .progress import aggregate, format_table, load_exports
 from .render import build as run_build
 
 app = typer.Typer(
@@ -77,6 +79,52 @@ def build(
     handout_path, guide_path = run_build(cohort, out)
     typer.echo(f"wrote {handout_path}")
     typer.echo(f"wrote {guide_path}")
+
+
+@app.command()
+def progress(
+    exports_dir: Path = typer.Argument(
+        ..., help="Directory of students' exported progress JSON files"
+    ),
+    cohort_dir: Path | None = typer.Option(
+        None,
+        "--cohort-dir",
+        help="Directory containing cohort.yaml, to order sessions by the real curriculum",
+    ),
+    out: Path | None = typer.Option(
+        None, "--out", help="Write an HTML report here in addition to the terminal summary"
+    ),
+) -> None:
+    """Summarize a folder of students' exported progress files: who's done
+    what, and which session the group is behind on. No accounts, no server —
+    the students each send a file, this reads the folder they landed in."""
+    result = load_exports(exports_dir)
+
+    for path, reason in result.skipped:
+        typer.secho(f"warning: skipped {path.name}: {reason}", fg=typer.colors.YELLOW)
+
+    if not result.exports:
+        _die(
+            f"no valid progress export files found in {exports_dir}",
+            hint="Each file should be JSON downloaded from a handout's 'Export progress' button.",
+        )
+        return
+
+    cohort = None
+    if cohort_dir is not None:
+        try:
+            cohort = load(cohort_dir)
+        except ContentKitError as e:
+            _die(str(e), e.hint, e.code)
+            return
+
+    report = aggregate(result.exports, cohort=cohort)
+    typer.echo(format_table(report))
+
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(render_progress_report(report), encoding="utf-8")
+        typer.echo(f"\nwrote {out}")
 
 
 if __name__ == "__main__":

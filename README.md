@@ -48,6 +48,7 @@ pip install "cohortkit @ git+https://github.com/alpibrusl/cohort-kit@main"
 cohortkit check path/to/cohort              # validate the source
 cohortkit check path/to/cohort --book-path path/to/the/book  # + cross-check chapter refs
 cohortkit build path/to/cohort --out build  # → build/handout.html, build/facilitator-guide.html
+cohortkit progress path/to/exports          # summarize students' exported progress files
 ```
 
 `check` catches the things a facilitator would otherwise find live, in
@@ -58,6 +59,30 @@ exist, a rubric with nothing in it (or so many dimensions it stops being
 usable live), and — given `--book-path` — a chapter reference that doesn't
 exist in the source book's own `book.yaml`, or a book chapter no session
 ever mentions.
+
+## Tracking progress, without a server
+
+The handout is interactive: a student ticks off each session's checkpoint
+as they clear it, and a progress bar tracks it — state lives in the
+browser's own `localStorage`, keyed to the cohort, so it survives a reload
+as long as the handout is reopened at the same URL. No account, no backend.
+
+When a student clicks **Export progress**, the browser downloads a small
+JSON file — the only channel this tool uses between a student and an
+instructor. The student sends that file however they already would (email,
+Slack, an LMS upload); the instructor collects a folder of them and runs:
+
+```bash
+cohortkit progress path/to/exports-folder --out report.html
+```
+
+This prints a plain-text summary (who's done what, which session the group
+is behind on) and, with `--out`, also writes an HTML report in the same
+visual style as the handout. Pass `--cohort-dir` to order sessions by the
+curriculum's own source rather than whatever an export file happened to
+record — protects against a stale export describing a retitled session. A
+student who exports more than once is only counted once, by their most
+recent submission.
 
 ## Why a handout and a guide, not just one page
 

@@ -8,6 +8,8 @@ is assessed). Everything here is data — no rendering logic lives in this file.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -92,3 +94,27 @@ class Cohort(BaseModel):
     config: CohortConfig
     sessions: list[Session]
     rubric: list[RubricDimension]
+
+
+class SessionProgress(BaseModel):
+    """One session's checkbox state, as the handout's own JS tracks it —
+    nothing more than whether the checkpoint was marked done, and when."""
+
+    number: int = Field(gt=0)
+    title: str
+    complete: bool
+    completed_at: datetime | None = None
+    """None when `complete` is False — a session can't have been completed
+    at no particular time."""
+
+
+class ProgressExport(BaseModel):
+    """What the handout's "Export progress" button actually downloads, and
+    what `cohortkit progress` reads back in. The whole point of this shape
+    is that it's the only channel between a student's browser and an
+    instructor — no account, no server, just a file someone sends."""
+
+    cohort_title: str
+    student_name: str
+    exported_at: datetime
+    sessions: list[SessionProgress]
