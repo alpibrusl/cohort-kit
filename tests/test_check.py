@@ -1,0 +1,93 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from cohortkit.check import check
+from cohortkit.loader import load
+
+EXAMPLE = Path(__file__).parent.parent / "examples" / "minimal"
+
+
+def test_the_minimal_example_is_clean():
+    cohort = load(EXAMPLE)
+    result = check(cohort, EXAMPLE)
+    assert result.ok
+    assert result.errors == []
+
+
+def test_duplicate_session_numbers_are_an_error():
+    cohort = load(EXAMPLE)
+    cohort.sessions[1].number = 1  # collide with session 1
+    result = check(cohort, EXAMPLE)
+    assert not result.ok
+    assert any("no gaps or repeats" in e for e in result.errors)
+
+
+def test_missing_fixture_is_an_error():
+    cohort = load(EXAMPLE)
+    cohort.sessions[0].exercise.fixture_ref = "fixture/does-not-exist.txt"
+    result = check(cohort, EXAMPLE)
+    assert not result.ok
+    assert any("does-not-exist.txt" in e for e in result.errors)
+
+
+def test_capstone_without_deliverable_is_an_error():
+    cohort = load(EXAMPLE)
+    cohort.sessions[1].deliverable = None
+    result = check(cohort, EXAMPLE)
+    assert not result.ok
+    assert any("no deliverable set" in e for e in result.errors)
+
+
+def test_non_capstone_without_exercise_is_an_error():
+    cohort = load(EXAMPLE)
+    cohort.sessions[0].exercise = None
+    result = check(cohort, EXAMPLE)
+    assert not result.ok
+    assert any("has no exercise" in e for e in result.errors)
+
+
+def test_empty_rubric_is_an_error():
+    cohort = load(EXAMPLE)
+    cohort.rubric = []
+    result = check(cohort, EXAMPLE)
+    assert not result.ok
+    assert any("nothing to grade" in e for e in result.errors)
+
+
+def test_capstone_not_last_is_an_error():
+    cohort = load(EXAMPLE)
+    cohort.sessions[0].capstone = True
+    cohort.sessions[0].deliverable = "something"
+    result = check(cohort, EXAMPLE)
+    assert not result.ok
+    assert any("2 sessions marked capstone" in e for e in result.errors)
+
+
+def test_book_path_catches_a_chapter_that_does_not_exist(tmp_path):
+    book_dir = tmp_path / "fake-book"
+    book_dir.mkdir()
+    (book_dir / "book.yaml").write_text(
+        "chapters:\n  - { file: chapters/01-intro.md, title: 'Chapter 1' }\n"
+    )
+    cohort = load(EXAMPLE)
+    cohort.sessions[1].chapters = [99]
+    result = check(cohort, EXAMPLE, book_path=book_dir)
+    assert not result.ok
+    assert any("chapter 99" in e for e in result.errors)
+
+
+def test_book_path_warns_about_orphaned_chapters(tmp_path):
+    book_dir = tmp_path / "fake-book"
+    book_dir.mkdir()
+    (book_dir / "book.yaml").write_text(
+        "chapters:\n"
+        "  - { file: chapters/01-intro.md, title: 'Chapter 1' }\n"
+        "  - { file: chapters/02-never-taught.md, title: 'Chapter 2' }\n"
+    )
+    cohort = load(EXAMPLE)
+    cohort.sessions[0].chapters = [1]
+    cohort.sessions[1].chapters = [1]
+    result = check(cohort, EXAMPLE, book_path=book_dir)
+    assert result.ok
+    assert any("aren't referenced by any session" in w for w in result.warnings)

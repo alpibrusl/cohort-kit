@@ -1,0 +1,2 @@
+This is a placeholder fixture file referenced by Session 1's exercise, to
+exercise cohortkit's fixture_ref existence check.

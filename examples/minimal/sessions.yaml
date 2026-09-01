@@ -1,0 +1,25 @@
+sessions:
+  - number: 1
+    title: "Orientation"
+    chapters: [1]
+    chapter_titles: ["The Handoff"]
+    in_session: >-
+      Walk the vocabulary live against something real, the way session one
+      of any cohort in this series does.
+    exercise:
+      name: "Name the parts"
+      description: "Given a real example, label its pieces without seeing the internals."
+      fixture_ref: "fixture/sample.txt"
+    checkpoint: "Can restate the core distinction unprompted."
+    facilitator_notes: >-
+      Runs long the first time a group does it — budget fifteen minutes past
+      what feels necessary.
+
+  - number: 2
+    title: "Capstone"
+    chapters: [2]
+    chapter_titles: ["The Minimum Bar"]
+    in_session: "Each student walks the group through their own findings."
+    checkpoint: "A specific, honest finding presented to the group."
+    capstone: true
+    deliverable: "A completed audit against the rubric, run on something real."

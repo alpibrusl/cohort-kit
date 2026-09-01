@@ -1,0 +1,83 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import typer
+from content_kit_core._errors import ContentKitError
+from content_kit_core._exit_codes import ExitCode
+
+from .check import check as run_check
+from .loader import load
+from .render import build as run_build
+
+app = typer.Typer(
+    name="cohortkit",
+    help="CLI for turning a book's chapters into a live, facilitated cohort curriculum.",
+    no_args_is_help=True,
+)
+
+
+def _die(message: str, hint: str | None = None, code: ExitCode = ExitCode.GENERAL_ERROR) -> None:
+    typer.secho(f"error: {message}", fg=typer.colors.RED, err=True)
+    if hint:
+        typer.secho(f"  hint: {hint}", fg=typer.colors.YELLOW, err=True)
+    raise typer.Exit(code=int(code))
+
+
+@app.command()
+def check(
+    cohort_dir: Path = typer.Argument(Path("."), help="Directory containing cohort.yaml"),
+    book_path: Path | None = typer.Option(
+        None,
+        "--book-path",
+        help="Path to the source book's repo, to cross-check chapter references",
+    ),
+) -> None:
+    """Validate a cohort's source: session numbering, capstone shape, fixture
+    references, rubric size, and — if --book-path is given — that every
+    chapter a session references actually exists in the book."""
+    try:
+        cohort = load(cohort_dir)
+    except ContentKitError as e:
+        _die(str(e), e.hint, e.code)
+        return
+
+    result = run_check(cohort, cohort_dir, book_path=book_path)
+
+    for w in result.warnings:
+        typer.secho(f"warning: {w}", fg=typer.colors.YELLOW)
+    for e in result.errors:
+        typer.secho(f"error: {e}", fg=typer.colors.RED, err=True)
+
+    n_sessions = len(cohort.sessions)
+    n_dims = len(cohort.rubric)
+    typer.echo(
+        f"checked {n_sessions} session(s), {n_dims} rubric dimension(s): "
+        f"{len(result.errors)} error(s), {len(result.warnings)} warning(s)"
+    )
+
+    if not result.ok:
+        raise typer.Exit(code=int(ExitCode.PRECONDITION_FAILED))
+
+
+@app.command()
+def build(
+    cohort_dir: Path = typer.Argument(Path("."), help="Directory containing cohort.yaml"),
+    out: Path = typer.Option(Path("build"), "--out", help="Output directory"),
+) -> None:
+    """Render the student handout and facilitator guide from a cohort's
+    source. Does not check first — run `cohortkit check` in CI, this command
+    just builds what's there."""
+    try:
+        cohort = load(cohort_dir)
+    except ContentKitError as e:
+        _die(str(e), e.hint, e.code)
+        return
+
+    handout_path, guide_path = run_build(cohort, out)
+    typer.echo(f"wrote {handout_path}")
+    typer.echo(f"wrote {guide_path}")
+
+
+if __name__ == "__main__":
+    app()

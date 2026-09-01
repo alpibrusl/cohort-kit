@@ -1,0 +1,5 @@
+dimensions:
+  - name: "Specificity"
+    description: "Findings name a concrete thing, not a general impression."
+  - name: "Honesty under uncertainty"
+    description: "What can't be verified is marked unconfirmed, not assumed fine."

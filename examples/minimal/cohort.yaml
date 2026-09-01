@@ -1,0 +1,12 @@
+title: "Minimal Example Cohort"
+subtitle: "A two-session worked example, used by cohortkit's own tests and as a template to copy from."
+book: "example-book"
+book_title: "Example Book"
+session_count: 2
+session_length_hours: 2
+cohort_size_min: 4
+cohort_size_max: 12
+format: "live, synchronous"
+prerequisite: "none"
+sessions_file: "sessions.yaml"
+rubric_file: "rubric.yaml"
