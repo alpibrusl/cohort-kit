@@ -71,10 +71,15 @@ def build(
         "--book-path",
         help="Embed each session's real chapter text from the book's own repo",
     ),
+    self_paced: bool = typer.Option(
+        False,
+        "--self-paced",
+        help="Render one handbook for a reader working alone, instead of a "
+        "handout and a facilitator guide.",
+    ),
 ) -> None:
-    """Render the student handout and facilitator guide from a cohort's
-    source. Does not check first — run `cohortkit check` in CI, this command
-    just builds what's there."""
+    """Render a cohort's documents from its source. Does not check first — run
+    `cohortkit check` in CI, this command just builds what's there."""
     try:
         cohort = load(cohort_dir)
     except ContentKitError as e:
@@ -82,12 +87,15 @@ def build(
         return
 
     try:
-        handout_path, guide_path = run_build(cohort, out, book_path=book_path)
+        handout_path, guide_path = run_build(
+            cohort, out, book_path=book_path, self_paced=self_paced
+        )
     except ContentKitError as e:
         _die(str(e), e.hint, e.code)
         return
     typer.echo(f"wrote {handout_path}")
-    typer.echo(f"wrote {guide_path}")
+    if guide_path != handout_path:
+        typer.echo(f"wrote {guide_path}")
 
 
 @app.command()

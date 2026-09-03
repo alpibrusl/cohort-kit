@@ -42,6 +42,15 @@ class Session(BaseModel):
     in_session: str
     """What actually happens live — discussion, demo, walkthrough. Distinct
     from the exercise: this is facilitator-led, the exercise is student-led."""
+    solo: str | None = None
+    """What a reader working alone does instead of the live segment.
+
+    Most `in_session` blocks assume a room — "as a group", "live walk",
+    "tabletop" — and rendering them to someone reading on their own hands them
+    instructions for a room they are not in. Where a session's live segment
+    teaches something a solo reader still needs, restate it here as something
+    they can do alone; where it is purely a group activity, leave this unset
+    and the self-paced handout omits the segment rather than faking it."""
     exercise: Exercise | None = None
     """Required on a non-capstone session, absent on a capstone one — a
     capstone sets `deliverable` instead. `check.py` enforces the split;

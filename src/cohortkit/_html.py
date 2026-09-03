@@ -261,6 +261,7 @@ def _session_html(
     include_facilitator_notes: bool,
     interactive: bool,
     book_chapters: dict[int, ChapterContent] | None = None,
+    solo: bool = False,
 ) -> str:
     chapters = ", ".join(str(c) for c in s.chapters)
     classes = "session capstone" if s.capstone else "session"
@@ -273,8 +274,20 @@ def _session_html(
         <h3 class="session-title">{_esc(s.title)}</h3>
       </div>
       <div class="session-chapters mono">Chapters {chapters}</div>
-      <div class="field"><span class="label">In session</span><p>{_esc(s.in_session)}</p></div>
     """
+    if solo:
+        # A reader working alone gets the solo restatement, or nothing --
+        # never the live segment, which is written for a room.
+        if s.solo:
+            body += (
+                '<div class="field"><span class="label">On your own</span>'
+                f"<p>{_esc(s.solo)}</p></div>\n"
+            )
+    else:
+        body += (
+            '<div class="field"><span class="label">In session</span>'
+            f"<p>{_esc(s.in_session)}</p></div>\n"
+        )
     if book_chapters:
         found = [book_chapters[n] for n in s.chapters if n in book_chapters]
         if found:
@@ -450,7 +463,17 @@ def render_page(
     audience: str,
     book_chapters: dict[int, ChapterContent] | None = None,
 ) -> str:
-    """`audience` is 'handout' or 'facilitator'. The handout also gets an
+    """`audience` is 'handout', 'facilitator' or 'self-paced'.
+
+    The three are the same curriculum rendered for three rooms. 'handout' and
+    'facilitator' are a facilitated cohort -- an academy running an open
+    course, or a company running one internally -- and differ in exactly one
+    field, `facilitator_notes`. 'self-paced' is for a reader working alone: it
+    drops the live segment, which is written for a group and reads as
+    instructions for a room they are not in, and keeps the progress tracking,
+    which is the audience that needs it most.
+
+    The handout also gets an
     interactive progress checklist (checkboxes, a progress bar, an export
     button) that the facilitator guide doesn't — tracking your own progress
     is a student concept, not a facilitator one. Everything else, including
@@ -461,8 +484,12 @@ def render_page(
     (collapsed by default) right in that session — reading along needs
     nothing but this one file, no separate PDF or EPUB."""
     include_notes = audience == "facilitator"
-    interactive = audience == "handout"
-    label = "Facilitator Guide" if include_notes else "Student Handout"
+    solo = audience == "self-paced"
+    interactive = audience in ("handout", "self-paced")
+    label = {
+        "facilitator": "Facilitator Guide",
+        "self-paced": "Self-Paced Handbook",
+    }.get(audience, "Student Handout")
 
     sessions_html = "\n".join(
         _session_html(
@@ -470,6 +497,7 @@ def render_page(
             include_facilitator_notes=include_notes,
             interactive=interactive,
             book_chapters=book_chapters,
+            solo=solo,
         )
         for s in cohort.sessions
     )

@@ -48,6 +48,7 @@ pip install "cohortkit @ git+https://github.com/alpibrusl/cohort-kit@main"
 cohortkit check path/to/cohort              # validate the source
 cohortkit check path/to/cohort --book-path path/to/the/book  # + cross-check chapter refs
 cohortkit build path/to/cohort --out build  # → build/handout.html, build/facilitator-guide.html
+cohortkit build path/to/cohort --out build --self-paced  # → build/self-paced-handbook.html
 cohortkit build path/to/cohort --out build --book-path path/to/the/book  # + embed chapter text
 cohortkit progress path/to/exports          # summarize students' exported progress files
 ```
@@ -101,6 +102,26 @@ a false "done"; a free-text note is where that honesty goes when a
 checkbox can't carry it. Notes ride in the same export file and show up in
 `cohortkit progress`'s output grouped by session, so an instructor sees
 which session actually confused people, in the students' own words.
+
+## Three rooms, one curriculum
+
+The same source renders for three ways of running the course, because the
+difference between them is who is in the room rather than what is taught.
+
+**A facilitated cohort** — an academy running an open course, or a company
+running one internally — gets the handout and the facilitator guide below.
+
+**A reader working alone** gets `--self-paced`: one handbook, no guide, and no
+live segment. That last part is the point. Most `in_session` blocks say "as a
+group", "live walk", "tabletop" — handing those to someone reading alone hands
+them instructions for a room they are not in. A session can carry a `solo`
+field saying what that reader does instead; where it has none, the segment is
+omitted rather than faked. Progress tracking stays, for the audience with
+nobody else keeping count.
+
+**A company** runs the facilitated build, and the differences that matter to it
+live in the curriculum rather than the renderer: where the capstone points, who
+attends, what may leave the room. See a book's own `cohort/README.md`.
 
 ## Why a handout and a guide, not just one page
 
