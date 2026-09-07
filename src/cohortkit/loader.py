@@ -8,7 +8,7 @@ import yaml
 from content_kit_core._errors import NotFoundError
 from pydantic import ValidationError
 
-from .schema import Cohort, CohortConfig, RubricDimension, Session
+from .schema import Cohort, CohortConfig, RubricDimension, RubricScale, Session
 
 
 def _read_yaml(path: Path) -> dict:
@@ -51,4 +51,16 @@ def load(cohort_dir: Path | str) -> Cohort:
     except ValidationError as e:
         raise NotFoundError(f"{config.rubric_file} is malformed: {e}") from e
 
-    return Cohort(config=config, sessions=sessions, rubric=rubric)
+    # `scale` is optional: without it the rubric is descriptive, which is the
+    # right shape for a capstone that produces an audit rather than a grade.
+    raw_scale = rubric_data.get("scale")
+    try:
+        scale = RubricScale.model_validate(raw_scale) if raw_scale else None
+    except ValidationError as e:
+        raise NotFoundError(
+            f"{config.rubric_file} has a malformed scale: {e}",
+            hint="A scale needs `levels` (two or more, worst first) and a "
+            "`pass_level` naming one of them.",
+        ) from e
+
+    return Cohort(config=config, sessions=sessions, rubric=rubric, scale=scale)

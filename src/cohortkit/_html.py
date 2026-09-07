@@ -125,6 +125,19 @@ table.rubric th {
   font-family: "IBM Plex Mono", monospace; font-size: 0.62rem;
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint);
 }
+/* A scored rubric is wide by nature -- one column per level. It scrolls in its
+   own box rather than making the whole page scroll sideways. */
+.rubric-scroll { overflow-x: auto; }
+table.rubric.scored { min-width: 34rem; font-size: 0.86rem; }
+table.rubric.scored td.dimension { width: 12rem; }
+table.rubric.scored .pass-col { background: var(--accent-wash, rgba(0,0,0,0.035)); }
+table.rubric.scored th.pass-col { color: var(--accent-strong); }
+table.rubric.scored th.pass-col::after {
+  content: " — the bar"; text-transform: none; letter-spacing: 0;
+}
+p.rubric-bar {
+  margin-top: 0.7rem; font-size: 0.86rem; color: var(--ink-faint);
+}
 footer {
   margin-top: 3.5rem; padding-top: 1.2rem;
   border-top: 1px solid var(--rule-strong);
@@ -457,6 +470,59 @@ def _progress_script(cohort: Cohort) -> str:
 """
 
 
+def _rubric_html(cohort: Cohort) -> str:
+    """The capstone rubric, scored or not.
+
+    Without a scale this is the two-column table it has always been. With one
+    it becomes a grid -- a column per level, the pass column marked -- because
+    that is the shape somebody has to fill in and hand upward.
+    """
+    if not cohort.rubric:
+        return ""
+
+    scale = cohort.scale
+    if scale is None:
+        rows = "\n".join(
+            f"<tr><td>{_esc(d.name)}</td><td>{_esc(d.description)}</td></tr>" for d in cohort.rubric
+        )
+        return f"""
+        <h2 class="block-title">Capstone rubric</h2>
+        <table class="rubric">
+          <thead><tr><th>Dimension</th><th>What earns it</th></tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
+        """
+
+    def cls(level: str) -> str:
+        return ' class="pass-col"' if level == scale.pass_level else ""
+
+    head = "".join(f"<th{cls(lv)}>{_esc(lv)}</th>" for lv in scale.levels)
+    rows = "\n".join(
+        "<tr>"
+        + f'<td class="dimension"><strong>{_esc(d.name)}</strong><br>{_esc(d.description)}</td>'
+        + "".join(f"<td{cls(lv)}>{_esc(d.levels.get(lv, ''))}</td>" for lv in scale.levels)
+        + "</tr>"
+        for d in cohort.rubric
+    )
+    where = "every dimension" if scale.all_dimensions else "the rubric overall"
+    bar = (
+        f"Passing means reaching <strong>{_esc(scale.pass_level)}</strong> on {where}. "
+        "A strong showing on one dimension does not make up for a missing one."
+        if scale.all_dimensions
+        else f"Passing means reaching <strong>{_esc(scale.pass_level)}</strong> overall."
+    )
+    return f"""
+        <h2 class="block-title">Capstone rubric</h2>
+        <div class="rubric-scroll">
+        <table class="rubric scored">
+          <thead><tr><th>Dimension</th>{head}</tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
+        </div>
+        <p class="rubric-bar">{bar}</p>
+        """
+
+
 def render_page(
     cohort: Cohort,
     *,
@@ -502,18 +568,7 @@ def render_page(
         for s in cohort.sessions
     )
 
-    rubric_html = ""
-    if cohort.rubric:
-        rows = "\n".join(
-            f"<tr><td>{_esc(d.name)}</td><td>{_esc(d.description)}</td></tr>" for d in cohort.rubric
-        )
-        rubric_html = f"""
-        <h2 class="block-title">Capstone rubric</h2>
-        <table class="rubric">
-          <thead><tr><th>Dimension</th><th>What earns it</th></tr></thead>
-          <tbody>{rows}</tbody>
-        </table>
-        """
+    rubric_html = _rubric_html(cohort)
 
     progress_panel = ""
     script = ""

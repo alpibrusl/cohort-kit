@@ -68,6 +68,35 @@ class Session(BaseModel):
     the thing being assessed against the rubric, rather than practiced."""
 
 
+class RubricScale(BaseModel):
+    """The columns of a scored rubric, declared once for the whole grid.
+
+    Optional. Without it the rubric renders as it always has -- dimensions and
+    what earns them -- which is the right shape for a cohort whose capstone
+    produces an honest audit rather than a grade.
+
+    With it the rubric becomes gradable, which is what a company's L&D function
+    needs in order to report completion to somebody who was not in the room.
+    Level names live here rather than on each dimension so the rendered rubric
+    is a grid with consistent columns; dimensions that each invented their own
+    scale would not be a rubric at all.
+    """
+
+    levels: list[str] = Field(min_length=2)
+    """Ordered worst to best. The last is not automatically the pass mark."""
+
+    pass_level: str
+    """Which level is the bar, by name. Must be one of ``levels``."""
+
+    all_dimensions: bool = True
+    """Whether the bar must be met on every dimension.
+
+    True by default, and deliberately: this material does not let a strong
+    showing on one axis compensate for a missing one. A capstone that names no
+    owner is not rescued by checking presence honestly.
+    """
+
+
 class RubricDimension(BaseModel):
     """One axis the capstone is actually judged on. Kept small on purpose —
     a rubric with more than a handful of dimensions stops being usable as a
@@ -75,6 +104,14 @@ class RubricDimension(BaseModel):
 
     name: str
     description: str
+
+    levels: dict[str, str] = {}
+    """What each level looks like on this dimension, keyed by level name.
+
+    Empty unless the rubric declares a scale. When one is declared, every
+    dimension has to describe every level -- a grid with holes in it is worse
+    than no grid, because the holes are exactly where two assessors disagree.
+    """
 
 
 class CohortConfig(BaseModel):
@@ -103,6 +140,9 @@ class Cohort(BaseModel):
     config: CohortConfig
     sessions: list[Session]
     rubric: list[RubricDimension]
+    scale: RubricScale | None = None
+    """Present only when rubric.yaml declares one. None means the rubric is
+    descriptive rather than scored, and renders exactly as it always did."""
 
 
 class SessionProgress(BaseModel):

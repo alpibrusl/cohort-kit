@@ -164,6 +164,46 @@ def check(cohort: Cohort, cohort_dir: Path, book_path: Path | None = None) -> Ch
             "gradable live in a session and turns into a checklist wearing a rubric's name"
         )
 
+    # --- the scale, if there is one: a grid with holes is worse than no grid ---
+    scale = cohort.scale
+    if scale is None:
+        scored = [d.name for d in cohort.rubric if d.levels]
+        if scored:
+            result.errors.append(
+                f"{len(scored)} dimension(s) describe levels but rubric.yaml declares no "
+                f"scale — add one, or the descriptions render nowhere: {', '.join(scored)}"
+            )
+    else:
+        if len(set(scale.levels)) != len(scale.levels):
+            result.errors.append(
+                f"scale repeats a level name: {scale.levels} — level names are the grid's "
+                "column headers and have to be distinct"
+            )
+        if scale.pass_level not in scale.levels:
+            result.errors.append(
+                f"scale's pass_level '{scale.pass_level}' is not one of its levels "
+                f"({', '.join(scale.levels)})"
+            )
+        elif scale.pass_level == scale.levels[0]:
+            result.warnings.append(
+                f"the pass level '{scale.pass_level}' is the lowest on the scale, so every "
+                "capstone passes by definition — check that is what was meant"
+            )
+        for d in cohort.rubric:
+            missing = [lv for lv in scale.levels if lv not in d.levels]
+            if missing:
+                result.errors.append(
+                    f"rubric dimension '{d.name}' describes no {', '.join(missing)} — a "
+                    "scored rubric needs every cell, because the empty ones are exactly "
+                    "where two assessors disagree"
+                )
+            extra = [lv for lv in d.levels if lv not in scale.levels]
+            if extra:
+                result.errors.append(
+                    f"rubric dimension '{d.name}' describes '{', '.join(extra)}', which the "
+                    "scale does not list — it will render nowhere"
+                )
+
     # --- chapter references, cross-checked against the real book if given ---
     if book_path is not None:
         try:
