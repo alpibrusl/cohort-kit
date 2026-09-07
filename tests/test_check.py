@@ -150,3 +150,66 @@ def test_book_path_accepts_a_matching_chapter_title(tmp_path):
     cohort.sessions[1].chapter_titles = []
     result = check(cohort, EXAMPLE, book_path=book_dir)
     assert result.ok
+
+
+def _rubric(tmp_path, rubric: dict):
+    """The example cohort with rubric.yaml replaced."""
+    import shutil
+
+    import yaml
+
+    d = tmp_path / "cohort"
+    shutil.copytree(EXAMPLE, d)
+    (d / "rubric.yaml").write_text(yaml.dump(rubric), encoding="utf-8")
+    return d
+
+
+def test_a_scored_rubric_must_describe_every_cell(tmp_path):
+    """A grid with holes is worse than no grid: the holes are exactly where two
+    assessors disagree."""
+    d = _rubric(
+        tmp_path,
+        {
+            "scale": {"levels": ["No", "Yes"], "pass_level": "Yes"},
+            "dimensions": [{"name": "Specificity", "description": "d", "levels": {"Yes": "y"}}],
+        },
+    )
+    result = check(load(d), d)
+    assert any("describes no No" in e for e in result.errors)
+
+
+def test_a_pass_level_has_to_be_on_the_scale(tmp_path):
+    d = _rubric(
+        tmp_path,
+        {
+            "scale": {"levels": ["No", "Yes"], "pass_level": "Excellent"},
+            "dimensions": [
+                {"name": "S", "description": "d", "levels": {"No": "n", "Yes": "y"}}
+            ],
+        },
+    )
+    result = check(load(d), d)
+    assert any("not one of its levels" in e for e in result.errors)
+
+
+def test_levels_without_a_scale_are_an_error_not_a_silent_drop(tmp_path):
+    d = _rubric(
+        tmp_path,
+        {"dimensions": [{"name": "S", "description": "d", "levels": {"Yes": "y"}}]},
+    )
+    result = check(load(d), d)
+    assert any("declares no scale" in e for e in result.errors)
+
+
+def test_a_pass_level_at_the_bottom_of_the_scale_is_a_warning(tmp_path):
+    d = _rubric(
+        tmp_path,
+        {
+            "scale": {"levels": ["No", "Yes"], "pass_level": "No"},
+            "dimensions": [
+                {"name": "S", "description": "d", "levels": {"No": "n", "Yes": "y"}}
+            ],
+        },
+    )
+    result = check(load(d), d)
+    assert any("every capstone passes by definition" in w for w in result.warnings)

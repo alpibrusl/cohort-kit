@@ -123,6 +123,41 @@ nobody else keeping count.
 live in the curriculum rather than the renderer: where the capstone points, who
 attends, what may leave the room. See a book's own `cohort/README.md`.
 
+## Scoring the capstone, when somebody has to report it
+
+By default the rubric is descriptive: dimensions, and what earns them. That is
+the right shape for a capstone meant to produce an honest audit rather than a
+grade, and it is what these cohorts were built around.
+
+A company running this internally usually cannot stop there. An L&D function
+has to tell somebody who was not in the room whether people passed, and
+"produced a thoughtful audit" does not survive that trip.
+
+So `rubric.yaml` may declare a scale:
+
+```yaml
+scale:
+  levels: ["Not yet", "Meets the bar", "Exemplary"]
+  pass_level: "Meets the bar"
+  all_dimensions: true
+```
+
+and each dimension describes what every level looks like on it. The rubric
+then renders as a grid with the pass column marked, in all three documents —
+a reader working alone needs the bar more than a cohort does, not less.
+
+Level names live on the scale rather than on each dimension, so the grid has
+consistent columns; dimensions that each invented their own scale would not be
+a rubric. `cohortkit check` refuses a grid with holes in it, because an empty
+cell is exactly where two assessors disagree.
+
+`all_dimensions: true` means the bar has to be met on every dimension rather
+than on average. It is the default because compensatory scoring lets a strong
+showing on one axis cover a missing one, which is the failure most of this
+material exists to catch.
+
+Omit the block entirely and nothing changes.
+
 ## Why a handout and a guide, not just one page
 
 They come from the exact same source and differ in exactly one way:

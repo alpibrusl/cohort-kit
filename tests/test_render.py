@@ -112,3 +112,72 @@ def test_a_solo_reader_keeps_progress_tracking(tmp_path):
     """The audience that needs it most: nobody else is keeping count."""
     handbook, _ = build(load(EXAMPLE), tmp_path, self_paced=True)
     assert "Export progress" in handbook.read_text(encoding="utf-8")
+
+
+def _scored(tmp_path: Path, **scale) -> Path:
+    """A copy of the example cohort whose rubric declares a scale."""
+    import shutil
+
+    import yaml
+
+    d = tmp_path / "cohort"
+    shutil.copytree(EXAMPLE, d)
+    rubric = yaml.safe_load((d / "rubric.yaml").read_text(encoding="utf-8"))
+    rubric["scale"] = {
+        "levels": ["Not yet", "Approaching", "Meets"],
+        "pass_level": "Meets",
+        **scale,
+    }
+    for dim in rubric["dimensions"]:
+        dim["levels"] = {
+            "Not yet": f"{dim['name']}: not demonstrated.",
+            "Approaching": f"{dim['name']}: partly demonstrated.",
+            "Meets": f"{dim['name']}: demonstrated.",
+        }
+    (d / "rubric.yaml").write_text(yaml.dump(rubric), encoding="utf-8")
+    return d
+
+
+def test_a_rubric_with_no_scale_renders_the_two_column_table(tmp_path):
+    """The default has to stay the default: a capstone that produces an honest
+    audit rather than a grade should not sprout columns because a schema field
+    exists."""
+    cohort = load(EXAMPLE)
+    handout, _ = build(cohort, tmp_path)
+    text = handout.read_text(encoding="utf-8")
+    assert "<th>What earns it</th>" in text
+    assert 'class="rubric scored"' not in text
+    # the class, not the phrase -- the stylesheet always carries a rule that
+    # mentions "the bar", and matching that would pass whatever the body did
+    assert 'class="rubric-bar"' not in text
+
+
+def test_a_scale_turns_the_rubric_into_a_grid_with_the_bar_marked(tmp_path):
+    cohort = load(_scored(tmp_path))
+    handout, guide = build(cohort, tmp_path / "out")
+    for path in (handout, guide):
+        text = path.read_text(encoding="utf-8")
+        assert 'class="rubric scored"' in text
+        for level in ("Not yet", "Approaching", "Meets"):
+            assert f">{level}</th>" in text
+        # the pass column is marked in the head and in every body cell of it
+        assert '<th class="pass-col">Meets</th>' in text
+        assert text.count('<td class="pass-col">') == len(cohort.rubric)
+        assert "reaching <strong>Meets</strong> on every dimension" in text
+
+
+def test_the_solo_reader_is_told_the_bar_too(tmp_path):
+    """A reader with no facilitator has more need of the threshold, not less."""
+    cohort = load(_scored(tmp_path))
+    handbook, _ = build(cohort, tmp_path / "out", self_paced=True)
+    text = handbook.read_text(encoding="utf-8")
+    assert 'class="rubric scored"' in text
+    assert "reaching <strong>Meets</strong>" in text
+
+
+def test_a_compensatory_scale_says_overall_instead_of_every_dimension(tmp_path):
+    cohort = load(_scored(tmp_path, all_dimensions=False))
+    handout, _ = build(cohort, tmp_path / "out")
+    text = handout.read_text(encoding="utf-8")
+    assert "reaching <strong>Meets</strong> overall" in text
+    assert "does not make up for" not in text
