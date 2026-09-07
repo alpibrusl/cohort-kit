@@ -183,9 +183,7 @@ def test_a_pass_level_has_to_be_on_the_scale(tmp_path):
         tmp_path,
         {
             "scale": {"levels": ["No", "Yes"], "pass_level": "Excellent"},
-            "dimensions": [
-                {"name": "S", "description": "d", "levels": {"No": "n", "Yes": "y"}}
-            ],
+            "dimensions": [{"name": "S", "description": "d", "levels": {"No": "n", "Yes": "y"}}],
         },
     )
     result = check(load(d), d)
@@ -206,9 +204,7 @@ def test_a_pass_level_at_the_bottom_of_the_scale_is_a_warning(tmp_path):
         tmp_path,
         {
             "scale": {"levels": ["No", "Yes"], "pass_level": "No"},
-            "dimensions": [
-                {"name": "S", "description": "d", "levels": {"No": "n", "Yes": "y"}}
-            ],
+            "dimensions": [{"name": "S", "description": "d", "levels": {"No": "n", "Yes": "y"}}],
         },
     )
     result = check(load(d), d)
