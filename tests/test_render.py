@@ -181,3 +181,27 @@ def test_a_compensatory_scale_says_overall_instead_of_every_dimension(tmp_path):
     text = handout.read_text(encoding="utf-8")
     assert "reaching <strong>Meets</strong> overall" in text
     assert "does not make up for" not in text
+
+
+def test_every_document_records_what_built_it(tmp_path):
+    """A printed handout six months old should be rebuildable into that exact
+    handout. That needs the curriculum's commit and the renderer's — cohortkit
+    installs from @main, so its version number alone names a moving target."""
+    cohort = load(EXAMPLE)
+    handout, guide = build(cohort, tmp_path)
+    handbook, _ = build(cohort, tmp_path / "solo", self_paced=True)
+    for path in (handout, guide, handbook):
+        footer = path.read_text(encoding="utf-8").split("<footer>")[1].split("</footer>")[0]
+        assert "source " in footer
+        assert "cohortkit" in footer
+
+
+def test_the_stamp_describes_the_curriculum_not_the_output_directory(tmp_path):
+    """`--out` often points somewhere temporary. Stamping it would record a
+    commit that has nothing to do with the material in the document."""
+    cohort = load(EXAMPLE)
+    handout, _ = build(cohort, tmp_path)
+    assert cohort.source_dir == EXAMPLE
+    footer = handout.read_text(encoding="utf-8").split("<footer>")[1].split("</footer>")[0]
+    # EXAMPLE lives in this repository, so its commit is this repository's
+    assert "no recorded commit" not in footer

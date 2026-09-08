@@ -9,6 +9,7 @@ is assessed). Everything here is data — no rendering logic lives in this file.
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 from pydantic import BaseModel, Field
 
@@ -140,6 +141,10 @@ class Cohort(BaseModel):
     config: CohortConfig
     sessions: list[Session]
     rubric: list[RubricDimension]
+    source_dir: Path | None = None
+    """Where this cohort was loaded from. The build stamp describes this, not
+    the output directory -- `--out` often points somewhere temporary."""
+
     scale: RubricScale | None = None
     """Present only when rubric.yaml declares one. None means the rubric is
     descriptive rather than scored, and renders exactly as it always did."""

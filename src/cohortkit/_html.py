@@ -13,6 +13,9 @@ from __future__ import annotations
 import html
 import json
 import re
+from pathlib import Path
+
+from content_kit_core.provenance import build_stamp
 
 from .book_content import ChapterContent
 from .progress import AggregateReport
@@ -528,6 +531,7 @@ def render_page(
     *,
     audience: str,
     book_chapters: dict[int, ChapterContent] | None = None,
+    source: Path | str | None = None,
 ) -> str:
     """`audience` is 'handout', 'facilitator' or 'self-paced'.
 
@@ -549,6 +553,11 @@ def render_page(
     `book_chapters`, when given, embeds each session's actual chapter text
     (collapsed by default) right in that session — reading along needs
     nothing but this one file, no separate PDF or EPUB."""
+    # A rendered handout is an artifact like any other. Somebody holding a
+    # printout six months from now should be able to rebuild that exact one,
+    # which needs the curriculum's commit and the renderer's -- cohortkit is
+    # installed from @main, so its version number names a moving target.
+    stamp = build_stamp(source, ["cohortkit"]) if source is not None else "cohort-kit"
     include_notes = audience == "facilitator"
     solo = audience == "self-paced"
     interactive = audience in ("handout", "self-paced")
@@ -610,7 +619,7 @@ def render_page(
   {sessions_html}
   {rubric_html}
 </section>
-<footer>{_esc(cohort.config.book)} &middot; cohort-kit</footer>
+<footer>{_esc(cohort.config.book)} &middot; {_esc(stamp)}</footer>
 {script}
 </body>
 </html>

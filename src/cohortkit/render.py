@@ -32,24 +32,30 @@ def build(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # What the stamp describes is where the curriculum came from, never the
+    # output directory -- `--out` often points somewhere temporary and has
+    # nothing to do with the material.
+    source = Path(book_path) if book_path is not None else cohort.source_dir
+
     book_chapters = load_chapter_content(book_path) if book_path is not None else None
 
     if self_paced:
         handbook_path = out_dir / "self-paced-handbook.html"
         handbook_path.write_text(
-            render_page(cohort, audience="self-paced", book_chapters=book_chapters),
+            render_page(cohort, audience="self-paced", book_chapters=book_chapters, source=source),
             encoding="utf-8",
         )
         return handbook_path, handbook_path
 
     handout_path = out_dir / "handout.html"
     handout_path.write_text(
-        render_page(cohort, audience="handout", book_chapters=book_chapters), encoding="utf-8"
+        render_page(cohort, audience="handout", book_chapters=book_chapters, source=source),
+        encoding="utf-8",
     )
 
     guide_path = out_dir / "facilitator-guide.html"
     guide_path.write_text(
-        render_page(cohort, audience="facilitator", book_chapters=book_chapters),
+        render_page(cohort, audience="facilitator", book_chapters=book_chapters, source=source),
         encoding="utf-8",
     )
 
