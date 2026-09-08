@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cohortkit"
-version = "0.1.0"
+version = "0.2.0"
 description = "CLI for turning a book's chapters into a live, facilitated cohort curriculum — sessions and a rubric as source, a student handout and a facilitator guide as build artifacts"
 license = "EUPL-1.2"
 requires-python = ">=3.10"
