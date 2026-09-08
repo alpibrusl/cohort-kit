@@ -63,4 +63,10 @@ def load(cohort_dir: Path | str) -> Cohort:
             "`pass_level` naming one of them.",
         ) from e
 
-    return Cohort(config=config, sessions=sessions, rubric=rubric, scale=scale)
+    return Cohort(
+        config=config,
+        sessions=sessions,
+        rubric=rubric,
+        scale=scale,
+        source_dir=cohort_dir,
+    )
