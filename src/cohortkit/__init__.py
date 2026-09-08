@@ -7,6 +7,8 @@ build artifacts, never hand-edited and never committed.
 
 from __future__ import annotations
 
+__version__ = "0.2.0"
+
 from .loader import load
 from .render import build
 from .schema import Cohort, CohortConfig, Exercise, RubricDimension, Session
