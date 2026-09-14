@@ -23,10 +23,12 @@ Three files:
 from, how many sessions, cohort size, prerequisite.
 
 **`sessions.yaml`** — the sequence. Each session names the chapters it
-draws on, what happens live (`in_session`), and either an `exercise`
+draws on, the scaled-down version the learner does themselves first
+(`by_hand`), what happens live (`in_session`), and either an `exercise`
 (every session but the last) or a `deliverable` (the capstone only).
 A session can carry `facilitator_notes` — pacing, common pitfalls — shown
-in the facilitator guide and nowhere else.
+in the facilitator guide and nowhere else, and `module`, which groups a
+long sequence under headings.
 
 **`rubric.yaml`** — a small number of dimensions the capstone is actually
 judged on. Shown to students up front, in the handout, not held back as a
@@ -49,6 +51,7 @@ cohortkit check path/to/cohort              # validate the source
 cohortkit check path/to/cohort --book-path path/to/the/book  # + cross-check chapter refs
 cohortkit build path/to/cohort --out build  # → build/handout.html, build/facilitator-guide.html
 cohortkit build path/to/cohort --out build --self-paced  # → build/self-paced-handbook.html
+cohortkit build path/to/cohort --out build --home       # → build/family-guide.html
 cohortkit build path/to/cohort --out build --book-path path/to/the/book  # + embed chapter text
 cohortkit progress path/to/exports          # summarize students' exported progress files
 ```
@@ -58,9 +61,48 @@ front of a cohort: session numbers with a gap or a repeat, a capstone
 that isn't the last session or has no deliverable, a non-capstone session
 with no exercise, an exercise pointing at a fixture file that doesn't
 exist, a rubric with nothing in it (or so many dimensions it stops being
-usable live), and — given `--book-path` — a chapter reference that doesn't
-exist in the source book's own `book.yaml`, or a book chapter no session
-ever mentions.
+usable live), modules that overlap or that only some sessions belong to,
+and — given `--book-path` — a chapter reference that doesn't exist in the
+source book's own `book.yaml`, or a book chapter no session ever mentions.
+
+It also refuses two things that are not typos but curriculum drift; see
+below.
+
+## The two rules the build will not let you skip
+
+Both exist because the failure they catch is invisible in the source. A
+session that quietly dropped its hand-done phase looks exactly like a
+session that never had one, and by the time it shows up it has shown up in
+a room.
+
+**Every teaching session needs a `by_hand`.** The scaled-down version the
+learner does themselves, before any tool is delegated to, and which is
+meant to fail — five rows, twenty lines, one paragraph, but real. It is a
+required field rather than a convention because it is the first thing
+dropped by a facilitator running forty minutes behind, and a curriculum
+that has dropped it is teaching the shortcut it exists to prevent. The
+capstone is exempt; nothing else is.
+
+**Every module needs one `verify` case.** On an exercise, `verify` names a
+way the output can satisfy every stated requirement and still be wrong. A
+module without one drills asking without ever drilling checking. An
+ungrouped curriculum needs one somewhere; a module that contains only the
+capstone is exempt, since nothing in it is practised.
+
+Related, and checked rather than assumed: `ai_mode` (`none`, `tutor`, or
+`answer`) says how the agent is configured for a session. `answer` is the
+unlock that follows the hand-done phase, the way a calculator follows
+arithmetic — so `check` refuses it on a session with no `by_hand`. The
+mode renders in every document including the student's, because which mode
+is in force is not a secret, it is the rule of the room.
+
+### Who is shown the trap
+
+`verify` is deliberately not in the student handout: naming the trap in the
+document the learner reads first is the same as disarming it. It renders
+for whoever is holding it — the facilitator, or the adult at home — and for
+a reader working alone it ships behind a spoiler that says when to open it,
+because withholding it from the only person present is not an option.
 
 ## Reading along, without a separate PDF or EPUB
 
@@ -103,9 +145,9 @@ checkbox can't carry it. Notes ride in the same export file and show up in
 `cohortkit progress`'s output grouped by session, so an instructor sees
 which session actually confused people, in the students' own words.
 
-## Three rooms, one curriculum
+## Four rooms, one curriculum
 
-The same source renders for three ways of running the course, because the
+The same source renders for four ways of running the course, because the
 difference between them is who is in the room rather than what is taught.
 
 **A facilitated cohort** — an academy running an open course, or a company
@@ -118,6 +160,23 @@ them instructions for a room they are not in. A session can carry a `solo`
 field saying what that reader does instead; where it has none, the segment is
 omitted rather than faked. Progress tracking stays, for the audience with
 nobody else keeping count.
+
+**One adult and one child** get `--home`: one family guide, and the smallest
+real room there is. This is not the solo render with a second person added.
+A reader alone has no room at all; a pair has one, and can usually run a
+scaled-down version of a live segment written for twelve — so a session can
+carry `at_home` saying what the two of them do instead, and where a segment
+genuinely needs a group it is omitted rather than asking two people to be
+twelve.
+
+The field that matters more is `parent_notes`. A recruited practitioner can
+judge whether the answer their student came back with is correct; a parent
+usually cannot, and a guide that assumes otherwise is unusable by the person
+holding it. What a parent can do is ask the follow-up question — if they are
+given it — and refuse to hand over the answer. So `parent_notes` is that
+question, what a good answer sounds like, what a bad one sounds like, and the
+one thing not to do. It renders in the family guide and nowhere else, and the
+facilitator's pacing notes for a room of twelve stay out of it.
 
 **A company** runs the facilitated build, and the differences that matter to it
 live in the curriculum rather than the renderer: where the capstone points, who

@@ -77,6 +77,12 @@ def build(
         help="Render one handbook for a reader working alone, instead of a "
         "handout and a facilitator guide.",
     ),
+    home: bool = typer.Option(
+        False,
+        "--home",
+        help="Render one family guide for an adult and a child working through "
+        "this together, instead of a handout and a facilitator guide.",
+    ),
 ) -> None:
     """Render a cohort's documents from its source. Does not check first — run
     `cohortkit check` in CI, this command just builds what's there."""
@@ -88,10 +94,17 @@ def build(
 
     try:
         handout_path, guide_path = run_build(
-            cohort, out, book_path=book_path, self_paced=self_paced
+            cohort, out, book_path=book_path, self_paced=self_paced, home=home
         )
     except ContentKitError as e:
         _die(str(e), e.hint, e.code)
+        return
+    except ValueError as e:
+        _die(
+            str(e),
+            hint="Build them separately: once with --self-paced, once with --home.",
+            code=ExitCode.INVALID_ARGS,
+        )
         return
     typer.echo(f"wrote {handout_path}")
     if guide_path != handout_path:

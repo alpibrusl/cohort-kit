@@ -205,3 +205,173 @@ def test_the_stamp_describes_the_curriculum_not_the_output_directory(tmp_path):
     footer = handout.read_text(encoding="utf-8").split("<footer>")[1].split("</footer>")[0]
     # EXAMPLE lives in this repository, so its commit is this repository's
     assert "no recorded commit" not in footer
+
+
+# --- the family guide: one adult, one child ------------------------------
+
+
+def test_home_writes_one_family_guide(tmp_path):
+    cohort = load(EXAMPLE)
+    family, second = build(cohort, tmp_path, home=True)
+    assert family.name == "family-guide.html"
+    assert family == second
+    assert not (tmp_path / "facilitator-guide.html").exists()
+
+
+def test_the_family_guide_runs_at_home_instead_of_the_live_segment(tmp_path):
+    cohort = load(EXAMPLE)
+    family, _ = build(cohort, tmp_path, home=True)
+    text = family.read_text(encoding="utf-8")
+    assert "Each of you labels the same example separately" in text
+    assert "Together" in text
+    assert "In session" not in text
+
+
+def test_a_session_without_an_at_home_restatement_omits_the_segment(tmp_path):
+    """Two people cannot be twelve. Silence beats handing a pair a group
+    activity written for a cohort."""
+    cohort = load(EXAMPLE)
+    for s in cohort.sessions:
+        s.at_home = None
+    family, _ = build(cohort, tmp_path, home=True)
+    text = family.read_text(encoding="utf-8")
+    assert "In session" not in text
+    assert "Together" not in text
+
+
+def test_parent_notes_appear_only_in_the_family_guide(tmp_path):
+    cohort = load(EXAMPLE)
+    note = "your sheet becomes the answer key"
+    family, _ = build(cohort, tmp_path, home=True)
+    handout, guide = build(cohort, tmp_path / "cohort", home=False)
+    assert note in family.read_text(encoding="utf-8")
+    assert note not in handout.read_text(encoding="utf-8")
+    assert note not in guide.read_text(encoding="utf-8")
+
+
+def test_the_family_guide_withholds_the_facilitator_notes(tmp_path):
+    """Pacing advice for a room of twelve is not what an adult with one child
+    needs, and shipping it invites them to run a room they do not have."""
+    cohort = load(EXAMPLE)
+    family, _ = build(cohort, tmp_path, home=True)
+    assert "Runs long the first time" not in family.read_text(encoding="utf-8")
+
+
+def test_the_family_guide_tracks_progress(tmp_path):
+    """The audience with nobody else keeping count."""
+    cohort = load(EXAMPLE)
+    family, _ = build(cohort, tmp_path, home=True)
+    text = family.read_text(encoding="utf-8")
+    assert "Export progress" in text
+    assert "data-session-checkbox" in text
+
+
+def test_self_paced_and_home_are_not_combinable(tmp_path):
+    import pytest
+
+    cohort = load(EXAMPLE)
+    with pytest.raises(ValueError, match="two different rooms"):
+        build(cohort, tmp_path, self_paced=True, home=True)
+
+
+# --- who is allowed to see the trap --------------------------------------
+
+
+def test_the_verify_case_is_kept_out_of_the_student_handout(tmp_path):
+    """Naming the trap in the document the learner reads first is the same as
+    disarming it."""
+    cohort = load(EXAMPLE)
+    handout, guide = build(cohort, tmp_path)
+    trap = "applied to the parts that were easy to see"
+    assert trap not in handout.read_text(encoding="utf-8")
+    assert trap in guide.read_text(encoding="utf-8")
+
+
+def test_the_adult_at_home_is_handed_the_trap(tmp_path):
+    cohort = load(EXAMPLE)
+    family, _ = build(cohort, tmp_path, home=True)
+    assert "applied to the parts that were easy to see" in family.read_text(encoding="utf-8")
+
+
+def test_a_solo_reader_gets_the_trap_behind_a_spoiler(tmp_path):
+    """There is no adult holding it back, so the only honest option is to ship
+    it closed and say when to open it."""
+    cohort = load(EXAMPLE)
+    handbook, _ = build(cohort, tmp_path, self_paced=True)
+    text = handbook.read_text(encoding="utf-8")
+    assert "applied to the parts that were easy to see" in text
+    assert "verify-spoiler" in text
+    assert "until you have delegated the exercise" in text
+
+
+# --- the hand-done phase, and the rule of the room -----------------------
+
+
+def test_the_hand_done_phase_leads_every_document(tmp_path):
+    cohort = load(EXAMPLE)
+    handout, guide = build(cohort, tmp_path)
+    handbook, _ = build(cohort, tmp_path / "solo", self_paced=True)
+    family, _ = build(cohort, tmp_path / "home", home=True)
+    for path in (handout, guide, handbook, family):
+        text = path.read_text(encoding="utf-8")
+        assert "First, by hand" in text
+        assert "Keep the sheet" in text
+
+
+def test_the_hand_done_phase_comes_before_the_exercise(tmp_path):
+    cohort = load(EXAMPLE)
+    handout, _ = build(cohort, tmp_path)
+    text = handout.read_text(encoding="utf-8")
+    assert text.index("First, by hand") < text.index("Name the parts")
+
+
+def test_the_ai_mode_is_stated_to_everyone(tmp_path):
+    """Which mode is in force is not a secret, it is the rule of the room."""
+    cohort = load(EXAMPLE)
+    handout, guide = build(cohort, tmp_path)
+    family, _ = build(cohort, tmp_path / "home", home=True)
+    for path in (handout, guide, family):
+        text = path.read_text(encoding="utf-8")
+        assert "No agent this session" in text
+        assert "unlocked, after the hand-done phase" in text
+
+
+def test_modules_render_as_headings(tmp_path):
+    cohort = load(EXAMPLE)
+    handout, _ = build(cohort, tmp_path)
+    text = handout.read_text(encoding="utf-8")
+    assert '<h2 class="module-head">' in text
+    assert "Naming the parts" in text
+
+
+def test_an_ungrouped_curriculum_renders_no_module_headings(tmp_path):
+    cohort = load(EXAMPLE)
+    for s in cohort.sessions:
+        s.module = None
+    handout, _ = build(cohort, tmp_path)
+    assert '<h2 class="module-head">' not in handout.read_text(encoding="utf-8")
+
+
+def test_the_family_guide_is_well_formed(tmp_path):
+    cohort = load(EXAMPLE)
+    family, _ = build(cohort, tmp_path, home=True)
+    text = family.read_text(encoding="utf-8")
+    assert text.count("<div") == text.count("</div>")
+    assert text.count("<details") == text.count("</details>")
+    assert text.startswith("<!doctype html>")
+
+
+def test_combining_the_two_rooms_exits_on_invalid_args(tmp_path):
+    """The CLI has to name a real exit code — an enum member that does not
+    exist turns a clean refusal into a traceback."""
+    from typer.testing import CliRunner
+
+    from cohortkit.cli import app
+
+    result = CliRunner().invoke(
+        app,
+        ["build", str(EXAMPLE), "--out", str(tmp_path), "--home", "--self-paced"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 2
+    assert "two different rooms" in result.output
