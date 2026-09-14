@@ -10,8 +10,17 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+AIMode = Literal["none", "tutor", "answer"]
+"""How the AI is configured for a session.
+
+``none`` no agent, ``tutor`` a sparring partner that withholds answers,
+``answer`` the unlock. Ordered least to most capable, which is the order the
+unlock travels in and never back.
+"""
 
 
 class Exercise(BaseModel):
@@ -20,6 +29,16 @@ class Exercise(BaseModel):
 
     name: str
     description: str
+    verify: str | None = None
+    """The case where the agent satisfies the request and is still wrong.
+
+    Not a hint and not a hard version of the exercise: a specific way this
+    exercise's output can pass every stated requirement and still be
+    unusable, which the learner is meant to find by checking rather than by
+    being told. Kept out of the student handout for the same reason a
+    facilitator note is -- naming the trap in the document the learner reads
+    first is the same as disarming it -- and shown to whoever is holding it:
+    a facilitator, a parent, or (behind a spoiler) a reader working alone."""
     fixture_ref: str | None = None
     """Path (relative to the cohort's own repo) to shared fixture material
     this exercise uses, if any — e.g. a seeded sample repo reused across
@@ -34,12 +53,38 @@ class Session(BaseModel):
 
     number: int = Field(gt=0)
     title: str
+    module: str | None = None
+    """Which module this session belongs to, by name.
+
+    A curriculum longer than a handful of sessions is taught in modules, and
+    the sequence reads as a list of unrelated evenings without them. Purely
+    a grouping: sessions carrying the same module name render under one
+    heading, and ``check.py`` requires those runs to be contiguous, because a
+    module interrupted by a session from another module is not a module.
+
+    Optional, and all-or-nothing -- a curriculum groups its sessions or it
+    does not. A short cohort that needs no grouping leaves it unset."""
     chapters: list[int] = Field(default_factory=list)
     """Chapter numbers in the source book this session draws on. Checked
     against the book's own book.yaml when ``--book-path`` is given to
     ``cohortkit check``, so a chapter renumber in the book can't silently
     strand a session's reference."""
     chapter_titles: list[str] = Field(default_factory=list)
+    by_hand: str | None = None
+    """The scaled-down version the learner does themselves, first, before any
+    tool is delegated to -- and which is meant to fail.
+
+    Required on every non-capstone session; ``check.py`` enforces that, the
+    same way it enforces the exercise/deliverable split. It is a required
+    field rather than a convention on purpose: a curriculum built on doing
+    the thing by hand first degrades into a checklist the moment the hand-done
+    phase is dropped for time, and the session that drops it looks exactly
+    like a session that never had one. Making it a build failure is the only
+    version of that rule that survives a facilitator running forty minutes
+    behind.
+
+    The scale is meant to be tiny -- five rows, twenty lines, one paragraph --
+    but real."""
     in_session: str
     """What actually happens live — discussion, demo, walkthrough. Distinct
     from the exercise: this is facilitator-led, the exercise is student-led."""
@@ -52,6 +97,29 @@ class Session(BaseModel):
     teaches something a solo reader still needs, restate it here as something
     they can do alone; where it is purely a group activity, leave this unset
     and the self-paced handout omits the segment rather than faking it."""
+    at_home: str | None = None
+    """What one adult and one child do instead of the live segment.
+
+    A third room, and not the same as ``solo``: a reader working alone has no
+    room at all, but a parent and a child have the smallest possible one. Most
+    ``in_session`` blocks assume eight to twelve learners -- "vote on which
+    story is true", "launch to half the cohort" -- and a pair cannot run them
+    as written, but usually can run something smaller that teaches the same
+    thing. Restate it here. Where a segment genuinely needs a group, leave
+    this unset and the family guide omits the segment rather than asking two
+    people to be twelve."""
+    parent_notes: str | None = None
+    """What the adult at home needs in order to run this session without
+    being the expert.
+
+    Distinct from ``facilitator_notes``, which is about running a room: pacing,
+    which exercise overruns, how to seat twelve people. A parent has no room to
+    run and, unlike a recruited practitioner, usually cannot judge whether the
+    answer their child came back with is correct. What they can do is ask the
+    follow-up question -- if they are given it -- and refuse to hand over the
+    answer. So this field is the question to ask, what a good answer sounds
+    like, what a bad one sounds like, and the one thing not to do. It renders
+    in the family guide and nowhere else."""
     exercise: Exercise | None = None
     """Required on a non-capstone session, absent on a capstone one — a
     capstone sets `deliverable` instead. `check.py` enforces the split;
@@ -63,6 +131,21 @@ class Session(BaseModel):
     """Pacing, common pitfalls, how to run an exercise that needs a specific
     setup — shown in the facilitator guide only, never the student handout.
     Optional on purpose: a straightforward session doesn't need one."""
+    ai_mode: AIMode = "tutor"
+    """Which way the AI is configured for this session.
+
+    ``tutor`` -- the default -- asks questions back, gives hints, and refuses
+    to hand over a finished artifact. ``answer`` is the unlock: the agent
+    answers straight, which is what a session needs once its hand-done phase
+    is behind it, and which ``check.py`` refuses on a session that has no
+    ``by_hand``. ``none`` is no agent in the room at all, which several of the
+    earliest sessions want.
+
+    It is a field rather than a note because it is the setting an adult has to
+    actually apply before the session starts, and because a parent running
+    this at home has no instructor to ask. Rendered to everyone, including the
+    student: which mode is in force is not a secret, it is the rule of the
+    room."""
     capstone: bool = False
     deliverable: str | None = None
     """Set instead of (not alongside) an exercise on a capstone session —

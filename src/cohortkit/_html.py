@@ -108,6 +108,54 @@ h2.block-title {
   display: block; margin-bottom: 0.25rem;
 }
 .capstone { border-color: var(--accent); background: var(--tag-bg); }
+h2.module-head {
+  font-size: 1.05rem; margin: 2.4rem 0 0.8rem; padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: "IBM Plex Mono", monospace; font-weight: 600;
+  letter-spacing: 0.04em; color: var(--accent-strong);
+}
+h2.module-head .module-kicker {
+  display: block; font-size: 0.62rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-faint); margin-bottom: 0.2rem;
+}
+.ai-mode {
+  display: inline-block; font-family: "IBM Plex Mono", monospace;
+  font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.16rem 0.45rem; border-radius: 2px; margin-bottom: 0.7rem;
+  border: 1px solid var(--rule-strong); color: var(--ink-soft);
+}
+.ai-mode.mode-answer {
+  border-color: var(--accent); color: var(--accent-strong); background: var(--tag-bg);
+}
+.ai-mode.mode-none { border-style: dashed; }
+.by-hand { border-left-color: var(--accent); }
+.by-hand .label { color: var(--accent-strong); }
+.verify {
+  margin-top: 0.9rem; padding: 0.7rem 0.9rem;
+  background: var(--tag-bg); border-radius: 3px; font-size: 0.92rem;
+  border-left: 2px solid var(--accent);
+}
+.verify .label {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.62rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent-strong); display: block; margin-bottom: 0.3rem;
+}
+details.verify-spoiler { margin-top: 0.9rem; }
+details.verify-spoiler > summary {
+  cursor: pointer; font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem; letter-spacing: 0.06em; color: var(--accent-strong);
+  padding: 0.45rem 0.6rem; background: var(--tag-bg); border-radius: 3px;
+}
+details.verify-spoiler .verify { margin-top: 0.35rem; }
+.parent-note {
+  margin-top: 0.9rem; padding: 0.7rem 0.9rem;
+  background: var(--tag-bg); border-radius: 3px; font-size: 0.92rem;
+}
+.parent-note .label {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.62rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent-strong); display: block; margin-bottom: 0.3rem;
+}
 .facilitator-note {
   margin-top: 0.9rem; padding: 0.7rem 0.9rem;
   background: var(--tag-bg); border-radius: 3px; font-size: 0.92rem;
@@ -271,6 +319,33 @@ def _slugify(s: str) -> str:
     return slug or "cohort"
 
 
+_AI_MODE_LABEL = {
+    "none": "No agent this session",
+    "tutor": "AI in tutor mode — hints and questions back, no finished answers",
+    "answer": "AI in answer mode — unlocked, after the hand-done phase",
+}
+
+
+def _live_segment(s: Session, room: str) -> str:
+    """The part of a session that depends on who is in the room.
+
+    Three rooms, and the field each one reads: a cohort runs ``in_session``, a
+    pair at home runs ``at_home``, a reader alone runs ``solo``. Where the
+    field for a room is unset the segment is omitted rather than substituted,
+    because handing a group activity to two people -- or to one -- is handing
+    them instructions for a room they are not in.
+    """
+    if room == "cohort":
+        return (
+            '<div class="field"><span class="label">In session</span>'
+            f"<p>{_esc(s.in_session)}</p></div>\n"
+        )
+    text, label = (s.at_home, "Together") if room == "home" else (s.solo, "On your own")
+    if not text:
+        return ""
+    return f'<div class="field"><span class="label">{label}</span><p>{_esc(text)}</p></div>\n'
+
+
 def _session_html(
     s: Session,
     *,
@@ -278,6 +353,9 @@ def _session_html(
     interactive: bool,
     book_chapters: dict[int, ChapterContent] | None = None,
     solo: bool = False,
+    room: str = "cohort",
+    verify_mode: str = "hidden",
+    include_parent_notes: bool = False,
 ) -> str:
     chapters = ", ".join(str(c) for c in s.chapters)
     classes = "session capstone" if s.capstone else "session"
@@ -290,20 +368,16 @@ def _session_html(
         <h3 class="session-title">{_esc(s.title)}</h3>
       </div>
       <div class="session-chapters mono">Chapters {chapters}</div>
+      <span class="ai-mode mode-{s.ai_mode}">{_esc(_AI_MODE_LABEL[s.ai_mode])}</span>
     """
-    if solo:
-        # A reader working alone gets the solo restatement, or nothing --
-        # never the live segment, which is written for a room.
-        if s.solo:
-            body += (
-                '<div class="field"><span class="label">On your own</span>'
-                f"<p>{_esc(s.solo)}</p></div>\n"
-            )
-    else:
+    # The hand-done phase leads, in every document. It is the first thing that
+    # happens in the room and the first thing anyone reads about the session.
+    if s.by_hand:
         body += (
-            '<div class="field"><span class="label">In session</span>'
-            f"<p>{_esc(s.in_session)}</p></div>\n"
+            '<div class="field by-hand"><span class="label">First, by hand</span>'
+            f"<p>{_esc(s.by_hand)}</p></div>\n"
         )
+    body += _live_segment(s, "solo" if solo else room)
     if book_chapters:
         found = [book_chapters[n] for n in s.chapters if n in book_chapters]
         if found:
@@ -325,6 +399,22 @@ def _session_html(
             f'<div class="field"><span class="label">Exercise: {_esc(s.exercise.name)}</span>'
             f"<p>{_esc(s.exercise.description)}</p></div>"
         )
+    if s.exercise and s.exercise.verify and verify_mode != "hidden":
+        trap = (
+            '<div class="verify"><span class="label">Right, and still wrong</span>'
+            f"<p>{_esc(s.exercise.verify)}</p></div>"
+        )
+        if verify_mode == "spoiler":
+            # Nobody is holding this one back for you. Opening it before you
+            # have checked your own output is allowed and is also the whole
+            # lesson, forfeited.
+            body += (
+                '<details class="verify-spoiler"><summary>Don\u2019t open this until you '
+                "have delegated the exercise and checked the result yourself.</summary>"
+                f"{trap}</details>"
+            )
+        else:
+            body += trap
     body += (
         '<div class="checkpoint"><span class="label">Checkpoint</span><div class="checkpoint-body">'
     )
@@ -342,6 +432,11 @@ def _session_html(
         body += (
             '<div class="facilitator-note"><span class="label">Facilitator notes</span>'
             f"{_esc(s.facilitator_notes)}</div>"
+        )
+    if include_parent_notes and s.parent_notes:
+        body += (
+            '<div class="parent-note"><span class="label">For the adult</span>'
+            f"{_esc(s.parent_notes)}</div>"
         )
     body += "</div>"
     return body
@@ -533,15 +628,18 @@ def render_page(
     book_chapters: dict[int, ChapterContent] | None = None,
     source: Path | str | None = None,
 ) -> str:
-    """`audience` is 'handout', 'facilitator' or 'self-paced'.
+    """`audience` is 'handout', 'facilitator', 'self-paced' or 'home'.
 
-    The three are the same curriculum rendered for three rooms. 'handout' and
+    The four are the same curriculum rendered for four rooms. 'handout' and
     'facilitator' are a facilitated cohort -- an academy running an open
     course, or a company running one internally -- and differ in exactly one
     field, `facilitator_notes`. 'self-paced' is for a reader working alone: it
     drops the live segment, which is written for a group and reads as
     instructions for a room they are not in, and keeps the progress tracking,
-    which is the audience that needs it most.
+    which is the audience that needs it most. 'home' is one adult and one
+    child: it runs `at_home` in place of the live segment and carries
+    `parent_notes`, which is the follow-up question an adult who is not a
+    practitioner cannot improvise.
 
     The handout also gets an
     interactive progress checklist (checkboxes, a progress bar, an export
@@ -560,22 +658,47 @@ def render_page(
     stamp = build_stamp(source, ["cohortkit"]) if source is not None else "cohort-kit"
     include_notes = audience == "facilitator"
     solo = audience == "self-paced"
-    interactive = audience in ("handout", "self-paced")
+    room = "home" if audience == "home" else "cohort"
+    interactive = audience in ("handout", "self-paced", "home")
     label = {
         "facilitator": "Facilitator Guide",
         "self-paced": "Self-Paced Handbook",
+        "home": "Family Guide",
     }.get(audience, "Student Handout")
 
-    sessions_html = "\n".join(
-        _session_html(
-            s,
-            include_facilitator_notes=include_notes,
-            interactive=interactive,
-            book_chapters=book_chapters,
-            solo=solo,
+    # Who is allowed to see the trap. An adult holding the session gets it
+    # outright; a reader with no adult gets it behind a spoiler, because the
+    # alternative is withholding it from the only person present; the student
+    # handout does not carry it at all, since naming the trap in the document
+    # the learner reads first is the same as disarming it.
+    verify_mode = {
+        "facilitator": "shown",
+        "home": "shown",
+        "self-paced": "spoiler",
+    }.get(audience, "hidden")
+
+    blocks: list[str] = []
+    current_module: str | None = None
+    for i, sess in enumerate(sorted(cohort.sessions, key=lambda x: x.number)):
+        if sess.module and (i == 0 or sess.module != current_module):
+            blocks.append(
+                f'<h2 class="module-head"><span class="module-kicker">Module</span>'
+                f"{_esc(sess.module)}</h2>"
+            )
+        current_module = sess.module
+        blocks.append(
+            _session_html(
+                sess,
+                include_facilitator_notes=include_notes,
+                interactive=interactive,
+                book_chapters=book_chapters,
+                solo=solo,
+                room=room,
+                verify_mode=verify_mode,
+                include_parent_notes=audience == "home",
+            )
         )
-        for s in cohort.sessions
-    )
+    sessions_html = "\n".join(blocks)
 
     rubric_html = _rubric_html(cohort)
 

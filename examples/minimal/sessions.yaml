@@ -1,14 +1,38 @@
 sessions:
   - number: 1
     title: "Orientation"
+    module: "Naming the parts"
     chapters: [1]
     chapter_titles: ["The Handoff"]
+    ai_mode: "none"
+    by_hand: >-
+      Before anything is looked up or asked of a tool: label the parts of one
+      real example on paper, alone, in five minutes. Keep the sheet — the point
+      is to still have it when the labels turn out to be wrong.
     in_session: >-
       Walk the vocabulary live against something real, the way session one
       of any cohort in this series does.
+    solo: >-
+      Walk the vocabulary against something real you already know well, and
+      write the walk down: with nobody to say it out loud to, the writing is
+      what stops you skipping a step.
+    at_home: >-
+      Each of you labels the same example separately, then compares. Where the
+      two sheets disagree is the session — the disagreement is more useful than
+      either sheet.
+    parent_notes: >-
+      Ask: "which of these did you guess at?" A good answer names a specific
+      label and why it was a guess. A bad one is "all of them" or "none" —
+      both mean the question wasn't taken seriously, so ask it again about one
+      label you can see is shaky. Do not label the example yourself first;
+      your sheet becomes the answer key and the comparison stops working.
     exercise:
       name: "Name the parts"
       description: "Given a real example, label its pieces without seeing the internals."
+      verify: >-
+        A labelling can use every term correctly and still be wrong about the
+        example, because the terms were applied to the parts that were easy to
+        see rather than the parts that matter. Ask what was left unlabelled.
       fixture_ref: "fixture/sample.txt"
     checkpoint: "Can restate the core distinction unprompted."
     facilitator_notes: >-
@@ -17,9 +41,26 @@ sessions:
 
   - number: 2
     title: "Capstone"
+    module: "Capstone"
     chapters: [2]
     chapter_titles: ["The Minimum Bar"]
+    ai_mode: "answer"
+    by_hand: >-
+      Do one pass of the audit by hand before delegating any of it, so the
+      delegated version has something to be checked against.
     in_session: "Each student walks the group through their own findings."
+    solo: >-
+      Write the findings up as if presenting them, then read them back a day
+      later and mark what you would not be able to defend.
+    at_home: >-
+      The child presents their findings to you as they would to a stranger,
+      and you ask questions until something is not defensible.
+    parent_notes: >-
+      Your only job is the follow-up question, and the best one is almost
+      always "how do you know?" — repeated. You do not need to know whether
+      the finding is correct to know whether the answer to that question is
+      any good. A good answer points at what was checked; a bad one restates
+      the finding louder.
     checkpoint: "A specific, honest finding presented to the group."
     capstone: true
     deliverable: "A completed audit against the rubric, run on something real."

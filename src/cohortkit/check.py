@@ -137,6 +137,76 @@ def check(cohort: Cohort, cohort_dir: Path, book_path: Path | None = None) -> Ch
                 "to be part of it?"
             )
 
+    # --- the hand-done phase exists, on every session that teaches ---
+    # Principle one of the material this tool serves: nothing is delegated to
+    # before it has been done by hand, small, and seen to fail. A curriculum
+    # that drops that phase under time pressure looks identical to one that
+    # never had it, so it is a build failure rather than a convention.
+    for s in cohort.sessions:
+        if not s.capstone and not s.by_hand:
+            result.errors.append(
+                f"session {s.number} has no by_hand — a session that delegates before "
+                "the learner has done a small version themselves teaches the shortcut, "
+                "which is the thing this curriculum exists to prevent"
+            )
+        if s.ai_mode == "answer" and not s.by_hand:
+            result.errors.append(
+                f"session {s.number} unlocks ai_mode: answer but has no by_hand — "
+                "answer mode is the unlock that follows the hand-done phase, "
+                "the way a calculator follows arithmetic; there is nothing here to unlock yet"
+            )
+
+    # --- modules: all-or-nothing, and contiguous ---
+    grouped = [s for s in cohort.sessions if s.module]
+    if grouped and len(grouped) != len(cohort.sessions):
+        ungrouped = [s.number for s in cohort.sessions if not s.module]
+        result.errors.append(
+            f"session(s) {ungrouped} name no module while others do — a curriculum "
+            "groups its sessions into modules or it does not, and a half-grouped "
+            "sequence renders as orphans between headings"
+        )
+    ordered = sorted(cohort.sessions, key=lambda s: s.number)
+    seen: list[str] = []
+    for s in ordered:
+        if not s.module:
+            continue
+        if not seen or seen[-1] != s.module:
+            if s.module in seen:
+                result.errors.append(
+                    f"module '{s.module}' resumes at session {s.number} after another "
+                    "module interrupted it — a module broken in half is not a module; "
+                    "renumber the sessions so each module runs contiguously"
+                )
+            seen.append(s.module)
+
+    # --- every module ends up somewhere the agent is right and still wrong ---
+    # "Verification only checks what you asked for" is the recurring lesson, not
+    # a single one; a module with no exercise carrying a `verify` case teaches
+    # the loop without ever closing it.
+    modules: dict[str | None, list] = {}
+    for s in ordered:
+        modules.setdefault(s.module, []).append(s)
+    for name, group in modules.items():
+        teaching = [s for s in group if not s.capstone]
+        if not teaching:
+            continue
+        if not any(s.exercise and s.exercise.verify for s in teaching):
+            where = f"module '{name}'" if name else "this curriculum"
+            result.errors.append(
+                f"no exercise in {where} sets `verify` — every module needs at least one "
+                "case where the agent satisfies the request and is still wrong, or the "
+                "learner practises asking without ever practising checking"
+            )
+
+    # --- the adult at home is given the question, not just the activity ---
+    for s in cohort.sessions:
+        if s.at_home and not s.parent_notes:
+            result.warnings.append(
+                f"session {s.number} has at_home but no parent_notes — the adult gets the "
+                "activity without the follow-up question to ask, which is the only part "
+                "of running this they cannot improvise"
+            )
+
     # --- fixture references stay inside the cohort and actually exist ---
     cohort_root = cohort_dir.resolve()
     for s in cohort.sessions:
